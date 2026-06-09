@@ -68,7 +68,7 @@ async def agent_llm(prompt: str, system: str = "", max_tokens: int = 2000) -> st
     full_prompt = f"{system}\n\n{prompt}" if system else prompt
     async with httpx.AsyncClient(timeout=60) as client:
         resp = await client.post(
-            f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-pro:generateContent?key={key}",
+            f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key={key}",
             json={"contents": [{"parts": [{"text": full_prompt}]}], "generationConfig": {"maxOutputTokens": max_tokens, "temperature": 0.3}},
         )
         resp.raise_for_status()

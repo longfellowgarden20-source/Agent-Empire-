@@ -2,6 +2,7 @@
 LLM Skills — route every call to the right model.
 Rule: never hardcode a model inside an agent. Always call these functions.
 """
+import asyncio
 import os
 import httpx
 from groq import Groq
@@ -56,24 +57,35 @@ async def smart_llm(prompt: str, system: str = "", max_tokens: int = 2000) -> st
     return await agent_llm(prompt, system=system, max_tokens=max_tokens)
 
 async def agent_llm(prompt: str, system: str = "", max_tokens: int = 2000) -> str:
-    """Gemini 1.5 Pro — agent tasks, multi-step reasoning. Free tier: 1500 req/day, 1M context."""
+    """Gemini 2.0 Flash — agent tasks. Rotates keys, retries on 429."""
     import random
     keys = [k for k in [
         os.environ.get("GEMINI_API_KEY"),
         os.environ.get("GEMINI_API_KEY_2"),
+        os.environ.get("GEMINI_API_KEY_3"),
     ] if k]
     if not keys:
         raise ValueError("No Gemini keys configured")
-    key = random.choice(keys)
     full_prompt = f"{system}\n\n{prompt}" if system else prompt
-    async with httpx.AsyncClient(timeout=60) as client:
-        resp = await client.post(
-            f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key={key}",
-            json={"contents": [{"parts": [{"text": full_prompt}]}], "generationConfig": {"maxOutputTokens": max_tokens, "temperature": 0.3}},
-        )
-        resp.raise_for_status()
-        data = resp.json()
-        return data["candidates"][0]["content"]["parts"][0]["text"]
+    for attempt in range(3):
+        key = random.choice(keys)
+        try:
+            async with httpx.AsyncClient(timeout=60) as client:
+                resp = await client.post(
+                    f"https://generativelanguage.googleapis.com/v1beta/models/gemini-2.0-flash:generateContent?key={key}",
+                    json={"contents": [{"parts": [{"text": full_prompt}]}], "generationConfig": {"maxOutputTokens": max_tokens, "temperature": 0.3}},
+                )
+                if resp.status_code == 429:
+                    await asyncio.sleep(15 * (attempt + 1))
+                    continue
+                resp.raise_for_status()
+                data = resp.json()
+                return data["candidates"][0]["content"]["parts"][0]["text"]
+        except Exception as e:
+            if attempt == 2:
+                raise
+            await asyncio.sleep(10)
+    raise RuntimeError("Gemini all retries failed")
 
 async def cheap_llm(prompt: str, max_tokens: int = 300) -> str:
     """Groq llama-3.1-8b — cost priority. Falls back to Gemini if no Groq key."""

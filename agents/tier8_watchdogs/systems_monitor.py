@@ -12,7 +12,7 @@ from shared.skills.memory_skills import save_to_memory, get_from_memory
 from shared.skills.scoring_skills import log_agent_run
 
 SERVICES = [
-    {"name": "Supabase", "url_env": "NEXT_PUBLIC_SUPABASE_URL", "path": "/rest/v1/", "expected_status": [200, 400]},
+    {"name": "Supabase", "url_env": "NEXT_PUBLIC_SUPABASE_URL", "path": "/rest/v1/businesses?select=id&limit=1", "expected_status": [200]},
     {"name": "Vercel Dashboard", "url_env": "VERCEL_URL", "path": "/", "expected_status": [200]},
     {"name": "Railway Worker", "url_env": "WORKER_SERVICE_URL", "path": "/health", "expected_status": [200]},
 ]
@@ -26,9 +26,14 @@ async def check_service(client: httpx.AsyncClient, service: dict) -> dict:
         return {"name": name, "status": "unconfigured", "ok": True, "latency_ms": 0}
 
     url = base_url.rstrip("/") + service["path"]
+    headers = {}
+    if service["name"] == "Supabase":
+        anon_key = os.environ.get("NEXT_PUBLIC_SUPABASE_ANON_KEY", "")
+        if anon_key:
+            headers = {"apikey": anon_key, "Authorization": f"Bearer {anon_key}"}
     try:
         start = datetime.now(timezone.utc)
-        resp = await client.get(url, timeout=10)
+        resp = await client.get(url, timeout=10, headers=headers)
         latency_ms = int((datetime.now(timezone.utc) - start).total_seconds() * 1000)
         ok = resp.status_code in service["expected_status"]
         return {

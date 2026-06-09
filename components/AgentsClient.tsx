@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
+import AgentNetwork from "@/components/AgentNetwork";
 
 type AgentRun = {
   id: string;
@@ -30,6 +31,7 @@ export default function AgentsClient() {
   const [agents, setAgents] = useState<AgentSummary[]>([]);
   const [recentRuns, setRecentRuns] = useState<AgentRun[]>([]);
   const [loading, setLoading] = useState(true);
+  const [view, setView] = useState<"table" | "network">("network");
 
   async function fetchAgents() {
     const yesterday = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
@@ -83,11 +85,38 @@ export default function AgentsClient() {
   const totalCost = agents.reduce((s, a) => s + a.totalCost, 0);
   const failing = agents.filter((a) => a.lastStatus === "failed");
 
+  if (view === "network") {
+    return (
+      <div style={{ width: "100%", height: "calc(100vh - 48px)", display: "flex", flexDirection: "column" }}>
+        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "12px 20px", borderBottom: "1px solid #1f1f1f" }}>
+          <span style={{ fontFamily: "monospace", fontSize: 11, color: "#a855f7", letterSpacing: 2 }}>◈ AGENT NETWORK</span>
+          <button
+            onClick={() => setView("table")}
+            style={{ fontFamily: "monospace", fontSize: 10, color: "#555555", background: "none", border: "1px solid #1f1f1f", padding: "4px 10px", borderRadius: 2, cursor: "pointer" }}
+          >
+            TABLE VIEW
+          </button>
+        </div>
+        <div style={{ flex: 1 }}>
+          <AgentNetwork />
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="flex flex-col gap-4 p-6" style={{ maxWidth: 1000 }}>
-      <div className="flex flex-col gap-1">
-        <h1 className="text-lg font-semibold" style={{ color: "#f5f5f5" }}>Agents</h1>
-        <p className="text-xs" style={{ color: "#555555" }}>All agent activity in the last 24 hours</p>
+      <div className="flex items-center justify-between">
+        <div className="flex flex-col gap-1">
+          <h1 className="text-lg font-semibold" style={{ color: "#f5f5f5" }}>Agents</h1>
+          <p className="text-xs" style={{ color: "#555555" }}>All agent activity in the last 24 hours</p>
+        </div>
+        <button
+          onClick={() => setView("network")}
+          style={{ fontFamily: "monospace", fontSize: 10, color: "#a855f7", background: "none", border: "1px solid #a855f740", padding: "4px 10px", borderRadius: 2, cursor: "pointer" }}
+        >
+          ◈ NETWORK VIEW
+        </button>
       </div>
 
       {/* stat row */}

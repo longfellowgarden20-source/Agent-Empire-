@@ -1,7 +1,27 @@
 """
 Scoring Skills — standardized quality + business scoring used by War Room and Quality Inspector.
 """
+import os
 from .llm_skills import smart_llm, cheap_llm
+
+
+async def log_agent_run(agent: str, status: str, summary: str, cost_usd: float = 0.0, duration_ms: int = 0) -> None:
+    """Log every agent run to Supabase for observability. Call this at the end of every agent."""
+    try:
+        from supabase import create_client
+        sb = create_client(
+            os.environ["NEXT_PUBLIC_SUPABASE_URL"],
+            os.environ["SUPABASE_SERVICE_ROLE_KEY"],
+        )
+        sb.table("agent_runs").insert({
+            "agent": agent,
+            "status": status,
+            "summary": summary,
+            "cost_usd": cost_usd,
+            "duration_ms": duration_ms,
+        }).execute()
+    except Exception as e:
+        print(f"[log_agent_run] Failed to log {agent}: {e}")
 
 async def score_business(company_id: str, revenue_7d: float, revenue_prev_7d: float,
                           agent_health_pct: float, market_growing: bool) -> dict:

@@ -66,14 +66,14 @@ async def run():
 
     cutoff = (datetime.now(timezone.utc) - timedelta(days=30)).isoformat()
 
-    agent_runs = supabase.table("agent_runs").select("agent_name, status, cost_usd").gte("created_at", cutoff).execute()
-    businesses = supabase.table("businesses").select("name, revenue_7d, war_room_score, war_room_recommendation, active").execute()
-    proposals = supabase.table("evolution_proposals").select("agent_name, proposal_type, status, data").gte("created_at", cutoff).execute()
+    agent_runs = supabase.table("agent_runs").select("agent, status, cost_usd").gte("created_at", cutoff).execute()
+    businesses = supabase.table("businesses").select("name, revenue_7d, war_room_score, war_room_recommendation, status").execute()
+    proposals = supabase.table("evolution_proposals").select("proposal, reasoning, status").gte("created_at", cutoff).execute()
 
     # summarize agent performance
     stats: dict[str, dict] = defaultdict(lambda: {"total": 0, "success": 0, "cost": 0.0})
     for row in (agent_runs.data or []):
-        agent = row.get("agent_name", "unknown")
+        agent = row.get("agent", "unknown")
         stats[agent]["total"] += 1
         if row.get("status") == "success":
             stats[agent]["success"] += 1
@@ -103,7 +103,7 @@ async def run():
     empire_lines.append(f"\nTOTAL EMPIRE REVENUE (7d): ${total_revenue:.2f}")
 
     recent_improvements = "\n".join([
-        f"- [{p.get('proposal_type')}] {p.get('agent_name')}: {json.dumps(p.get('data', {}))[:150]}"
+        f"- [{p.get('status')}] {p.get('proposal', '')[:100]}: {str(p.get('reasoning', ''))[:100]}"
         for p in (proposals.data or [])[:10]
     ]) or "No recent improvements"
 
@@ -125,21 +125,17 @@ async def run():
 
     for proposal in result.get("proposals", []):
         supabase.table("evolution_proposals").insert({
-            "proposed_by": "evolution_agent",
-            "agent_name": None,
-            "proposal_type": proposal.get("type", "architecture_change"),
-            "priority": proposal.get("priority", 7),
-            "data": proposal,
+            "proposal": f"[{proposal.get('type', 'architecture_change')}] {proposal.get('title', '')}: {proposal.get('description', '')}",
+            "reasoning": f"Priority: {proposal.get('priority', 7)}. Effort: {proposal.get('effort')}. Steps: {proposal.get('implementation_steps', [])}",
+            "impact_estimate": proposal.get("expected_impact", ""),
             "status": "pending",
         }).execute()
 
     # notify chairman with summary
     supabase.table("chairman_queue").insert({
-        "agent": "evolution_agent",
         "priority": 7,
         "message": f"[MONTHLY EVOLUTION REPORT] {result.get('biggest_unlock', '')} — {len(result.get('proposals', []))} proposals queued.",
-        "data": {"assessment": result.get("empire_health_assessment"), "biggest_unlock": result.get("biggest_unlock"), "proposal_count": len(result.get("proposals", []))},
-        "status": "pending",
+        "requires_action": True,
     }).execute()
 
     proposal_count = len(result.get("proposals", []))

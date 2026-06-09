@@ -53,29 +53,29 @@ async def run():
     )
 
     # read recent data from all key tables
-    agent_runs = supabase.table("agent_runs").select("agent_name, status, output, created_at").order("created_at", desc=True).limit(50).execute()
-    businesses = supabase.table("businesses").select("name, revenue_7d, active, war_room_score, war_room_recommendation").execute()
-    intelligence = supabase.table("oracle_intelligence").select("category, headline, sentiment, confidence, created_at").order("created_at", desc=True).limit(20).execute()
-    chairman_items = supabase.table("chairman_queue").select("agent, message, priority, status, created_at").eq("status", "pending").order("priority", desc=True).limit(10).execute()
+    agent_runs = supabase.table("agent_runs").select("agent, status, summary, created_at").order("created_at", desc=True).limit(50).execute()
+    businesses = supabase.table("businesses").select("name, revenue_7d, status, war_room_score, war_room_recommendation").execute()
+    intelligence = supabase.table("oracle_intelligence").select("category, ticker_or_topic, summary, relevance_score, created_at").order("created_at", desc=True).limit(20).execute()
+    chairman_items = supabase.table("chairman_queue").select("message, priority, created_at").eq("sent_in_brief", False).order("priority", desc=True).limit(10).execute()
 
     # format for prompt
     agent_activity = "\n".join([
-        f"- [{r.get('created_at', '')[:16]}] {r.get('agent_name')}: {r.get('status')} — {str(r.get('output', ''))[:100]}"
+        f"- [{r.get('created_at', '')[:16]}] {r.get('agent')}: {r.get('status')} — {str(r.get('summary', ''))[:100]}"
         for r in (agent_runs.data or [])[:30]
     ])
 
     business_status = "\n".join([
-        f"- {b.get('name')}: {'ACTIVE' if b.get('active') else 'INACTIVE'}, revenue=${b.get('revenue_7d', 0)}, score={b.get('war_room_score', 'N/A')}"
+        f"- {b.get('name')}: {b.get('status', 'unknown').upper()}, revenue=${b.get('revenue_7d', 0)}, score={b.get('war_room_score', 'N/A')}"
         for b in (businesses.data or [])
     ])
 
     intel_text = "\n".join([
-        f"- [{r.get('category')}] {r.get('headline')} ({r.get('sentiment')}, {r.get('confidence')}/10)"
+        f"- [{r.get('category')}] {r.get('ticker_or_topic')} — {r.get('summary', '')[:80]} ({r.get('relevance_score')}/10)"
         for r in (intelligence.data or [])
     ])
 
     chairman_text = "\n".join([
-        f"- [P{r.get('priority')}] {r.get('agent')}: {r.get('message', '')[:120]}"
+        f"- [P{r.get('priority')}] {r.get('message', '')[:120]}"
         for r in (chairman_items.data or [])
     ])
 

@@ -30,7 +30,7 @@ Return ONLY the script."""
 
 
 async def write_script(trend: dict, supabase) -> bool:
-    topic = trend.get("headline", "")
+    topic = trend.get("ticker_or_topic", "")
     signal = json.dumps(trend.get("data") or {})[:400]
 
     print(f"[VideoScripter] Writing script for: {topic[:50]}")
@@ -71,8 +71,8 @@ async def run():
         .select("*")
         .in_("category", ["trend", "macro", "crypto"])
         .gte("created_at", cutoff)
-        .gte("confidence", 7)
-        .order("confidence", desc=True)
+        .gte("relevance_score", 7)
+        .order("relevance_score", desc=True)
         .limit(3)
         .execute()
     )

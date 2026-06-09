@@ -25,7 +25,7 @@ async def run():
         os.environ["SUPABASE_SERVICE_ROLE_KEY"],
     )
 
-    businesses = supabase.table("businesses").select("id, name, metadata").eq("active", True).execute()
+    businesses = supabase.table("businesses").select("id, name").neq("status", "shutdown").execute()
     if not businesses.data:
         print("[InventoryAgent] No active businesses")
         await log_agent_run("inventory_agent", "skipped", "No businesses", duration_ms=0)
@@ -35,8 +35,7 @@ async def run():
     reorder_alerts = []
 
     for b in businesses.data:
-        metadata = b.get("metadata") or {}
-        inventory = metadata.get("inventory_data", [])
+        inventory = []
 
         for item in inventory:
             units = item.get("units_in_stock")
@@ -80,11 +79,9 @@ async def run():
         )
 
         supabase.table("chairman_queue").insert({
-            "agent": "inventory_agent",
             "priority": 9 if units == 0 else 7 if severity == "HIGH" else 5,
             "message": message,
-            "data": alert,
-            "status": "pending",
+            "requires_action": units == 0,
         }).execute()
 
     duration_ms = int((datetime.now(timezone.utc) - start).total_seconds() * 1000)

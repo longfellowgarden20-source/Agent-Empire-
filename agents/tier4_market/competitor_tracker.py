@@ -73,7 +73,7 @@ async def run():
         os.environ["SUPABASE_SERVICE_ROLE_KEY"],
     )
 
-    businesses = supabase.table("businesses").select("id, name, metadata").eq("active", True).execute()
+    businesses = supabase.table("businesses").select("id, name").neq("status", "shutdown").execute()
     if not businesses.data:
         print("[CompetitorTracker] No active businesses")
         await log_agent_run("competitor_tracker", "skipped", "No businesses", duration_ms=0)
@@ -81,8 +81,7 @@ async def run():
 
     tasks = []
     for b in businesses.data:
-        metadata = b.get("metadata") or {}
-        competitor_urls = metadata.get("competitor_urls", [])
+        competitor_urls = []
         for url in competitor_urls[:3]:  # max 3 competitors per business
             tasks.append((b.get("name", b["id"]), url))
 
@@ -103,11 +102,10 @@ async def run():
             changes_found += 1
             supabase.table("oracle_intelligence").insert({
                 "category": "competitor",
-                "source_agent": "competitor_tracker",
-                "headline": result.get("summary", ""),
-                "sentiment": "BEARISH" if result.get("threat_level") == "HIGH" else "NEUTRAL",
-                "data": result,
-                "confidence": 7 if result.get("threat_level") == "HIGH" else 5,
+                "ticker_or_topic": result.get("competitor", ""),
+                "summary": f"{'BEARISH' if result.get('threat_level') == 'HIGH' else 'NEUTRAL'} — {result.get('summary', '')} — Response: {result.get('recommended_response', '')}",
+                "raw_data": result,
+                "relevance_score": 7 if result.get("threat_level") == "HIGH" else 5,
             }).execute()
 
     duration_ms = int((datetime.now(timezone.utc) - start).total_seconds() * 1000)

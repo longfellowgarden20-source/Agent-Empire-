@@ -78,11 +78,10 @@ async def run():
     for opp in result.get("opportunities", []):
         supabase.table("oracle_intelligence").insert({
             "category": "real_estate",
-            "source_agent": "real_estate_scout",
-            "headline": opp.get("thesis", ""),
-            "sentiment": "BULLISH" if opp.get("risk") == "LOW" else "NEUTRAL",
-            "data": opp,
-            "confidence": opp.get("score", 5),
+            "ticker_or_topic": opp.get("market", ""),
+            "summary": f"{'BULLISH' if opp.get('risk') == 'LOW' else 'NEUTRAL'} — {opp.get('thesis', '')}",
+            "raw_data": opp,
+            "relevance_score": opp.get("score", 5),
         }).execute()
 
     opp_count = len(result.get("opportunities", []))

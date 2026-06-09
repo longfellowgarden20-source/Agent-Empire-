@@ -27,7 +27,7 @@ async def deploy_company(idea_id: str, company_slug: str, test_results: dict, su
         print(f"[Deployer] Idea {idea_id} not found")
         return False
 
-    spec = idea.data.get("company_specs") or {}
+    spec = idea.data.get("spec") or {}
     company_name = spec.get("company_name", company_slug)
     description = spec.get("description", "")
     agent_count = len(spec.get("agents", []))
@@ -40,30 +40,22 @@ async def deploy_company(idea_id: str, company_slug: str, test_results: dict, su
     if existing.data:
         business_id = existing.data[0]["id"]
         supabase.table("businesses").update({
-            "active": True,
-            "deployed_at": datetime.now(timezone.utc).isoformat(),
-            "metadata": {**(spec or {}), "test_results": test_results},
+            "status": "active",
         }).eq("id", business_id).execute()
     else:
         result = supabase.table("businesses").insert({
             "name": company_name,
             "slug": company_slug,
-            "description": description,
-            "active": True,
+            "status": "active",
             "revenue_7d": 0,
             "revenue_prev_7d": 0,
-            "agent_health_pct": 100,
-            "market_growing": True,
-            "deployed_at": datetime.now(timezone.utc).isoformat(),
-            "metadata": {**(spec or {}), "test_results": test_results},
+            "agent_count": len(spec.get("agents", [])),
         }).execute()
         business_id = result.data[0]["id"] if result.data else None
 
     # update idea status
     supabase.table("ideas").update({
-        "status": "deployed",
-        "business_id": business_id,
-        "deployed_at": datetime.now(timezone.utc).isoformat(),
+        "status": "live",
     }).eq("id", idea_id).execute()
 
     # notify chairman
@@ -78,11 +70,9 @@ async def deploy_company(idea_id: str, company_slug: str, test_results: dict, su
     )
 
     supabase.table("chairman_queue").insert({
-        "agent": "deployer",
         "priority": 7,
         "message": announcement.strip(),
-        "data": {"idea_id": idea_id, "business_id": business_id, "company_slug": company_slug, "spec": spec},
-        "status": "pending",
+        "requires_action": False,
     }).execute()
 
     return True

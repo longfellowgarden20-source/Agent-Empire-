@@ -71,11 +71,9 @@ async def build_upsell(prospect: dict, supabase) -> bool:
 
     if proposal.get("confidence", 0) >= 6:
         supabase.table("chairman_queue").insert({
-            "agent": "upsell_agent",
             "priority": 6,
             "message": f"[UPSELL] {company} — {proposal.get('upsell_service')} — +${proposal.get('price_increase')}/mo. {proposal.get('why_now')}",
-            "data": {"prospect_id": prospect["id"], "proposal": proposal},
-            "status": "pending",
+            "requires_action": False,
         }).execute()
 
     supabase.table("prospects").update({

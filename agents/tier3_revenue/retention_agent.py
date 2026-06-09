@@ -87,11 +87,9 @@ async def check_churn_risk(prospect: dict, supabase) -> bool:
 
     if churn_risk >= 6 or risk_level in ("HIGH", "CRITICAL"):
         supabase.table("chairman_queue").insert({
-            "agent": "retention_agent",
             "priority": 8 if risk_level == "CRITICAL" else 6,
             "message": f"[CHURN RISK {risk_level}] {company} — {result.get('recommended_action')} ({days_since_contact}d since contact)",
-            "data": {"prospect_id": prospect["id"], "churn_assessment": result},
-            "status": "pending",
+            "requires_action": risk_level == "CRITICAL",
         }).execute()
 
     return True

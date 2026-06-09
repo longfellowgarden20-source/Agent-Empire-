@@ -79,11 +79,10 @@ async def run():
         if trend.get("virality_score", 0) >= 8:
             supabase.table("oracle_intelligence").insert({
                 "category": "trend",
-                "source_agent": "trend_surfer",
-                "headline": trend.get("topic", ""),
-                "sentiment": "BULLISH",
-                "data": trend,
-                "confidence": trend.get("virality_score", 5),
+                "ticker_or_topic": trend.get("topic", ""),
+                "summary": f"BULLISH — {trend.get('opportunity', '')} — Window: {trend.get('window', '')}",
+                "raw_data": trend,
+                "relevance_score": trend.get("virality_score", 5),
             }).execute()
 
     top_trends = [t for t in result.get("trends", []) if t.get("virality_score", 0) >= 8]

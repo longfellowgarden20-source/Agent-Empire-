@@ -83,11 +83,10 @@ async def run():
         if product.get("score", 0) >= 8:
             supabase.table("oracle_intelligence").insert({
                 "category": "product",
-                "source_agent": "product_scout",
-                "headline": product.get("product_name", ""),
-                "sentiment": "BULLISH",
-                "data": product,
-                "confidence": product.get("score", 8),
+                "ticker_or_topic": product.get("product_name", ""),
+                "summary": f"BULLISH — {product.get('trend_momentum', '')} — Margin: {product.get('estimated_margin', '')}",
+                "raw_data": product,
+                "relevance_score": product.get("score", 8),
             }).execute()
 
             # trigger listing agent

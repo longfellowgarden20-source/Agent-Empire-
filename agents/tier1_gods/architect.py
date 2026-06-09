@@ -45,9 +45,9 @@ Return JSON:
 
 async def spec_idea(idea_record: dict, supabase) -> bool:
     idea_id = idea_record["id"]
-    idea_text = idea_record.get("idea", "")
-    score = idea_record.get("score", 80)
-    market_data = json.dumps(idea_record.get("validation_data") or {})[:800]
+    idea_text = idea_record.get("title", "") or idea_record.get("description", "")
+    score = idea_record.get("raw_score", 80)
+    market_data = json.dumps(idea_record.get("market_data") or {})[:800]
 
     print(f"[Architect] Speccing idea: {idea_text[:60]}")
 
@@ -73,8 +73,7 @@ async def spec_idea(idea_record: dict, supabase) -> bool:
 
     supabase.table("ideas").update({
         "status": "specced",
-        "company_specs": spec,
-        "specced_at": datetime.now(timezone.utc).isoformat(),
+        "spec": spec,
     }).eq("id", idea_id).execute()
 
     # queue for coder agent
@@ -89,11 +88,9 @@ async def spec_idea(idea_record: dict, supabase) -> bool:
 
     # notify chairman
     supabase.table("chairman_queue").insert({
-        "agent": "architect",
         "priority": 6,
         "message": f"[SPEC READY] {spec.get('company_name')} — target ${spec.get('revenue_target_90d')}/mo at 90 days. {len(spec.get('agents', []))} agents designed. Ready to build.",
-        "data": {"idea_id": idea_id, "spec": spec},
-        "status": "pending",
+        "requires_action": False,
     }).execute()
 
     return True
@@ -109,7 +106,7 @@ async def run():
         os.environ["SUPABASE_SERVICE_ROLE_KEY"],
     )
 
-    ideas = supabase.table("ideas").select("*").eq("status", "validated").order("score", desc=True).limit(5).execute()
+    ideas = supabase.table("ideas").select("*").eq("status", "validated").order("validated_score", desc=True).limit(5).execute()
     if not ideas.data:
         print("[Architect] No validated ideas to spec")
         await log_agent_run("architect", "skipped", "No validated ideas", duration_ms=0)

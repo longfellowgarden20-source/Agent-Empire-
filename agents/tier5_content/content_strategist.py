@@ -55,10 +55,10 @@ async def run():
     cutoff = (datetime.now(timezone.utc) - timedelta(days=3)).isoformat()
     trends = (
         supabase.table("oracle_intelligence")
-        .select("headline, data, confidence")
+        .select("ticker_or_topic, raw_data, relevance_score")
         .eq("category", "trend")
         .gte("created_at", cutoff)
-        .order("confidence", desc=True)
+        .order("relevance_score", desc=True)
         .limit(15)
         .execute()
     )
@@ -69,7 +69,7 @@ async def run():
         return
 
     trends_text = "\n".join([
-        f"- {t.get('headline', '')} (virality: {t.get('confidence', 5)}/10)"
+        f"- {t.get('ticker_or_topic', '')} (virality: {t.get('relevance_score', 5)}/10)"
         for t in trends.data
     ])
 

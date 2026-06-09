@@ -83,7 +83,7 @@ async def build_company(idea_id: str, company_slug: str, supabase) -> bool:
         print(f"[Coder] Idea {idea_id} not found")
         return False
 
-    spec = idea.data.get("company_specs") or {}
+    spec = idea.data.get("spec") or {}
     company_name = spec.get("company_name", company_slug)
     description = spec.get("description", "")
     business_model = spec.get("business_model", "")
@@ -131,8 +131,6 @@ async def build_company(idea_id: str, company_slug: str, supabase) -> bool:
 
     supabase.table("ideas").update({
         "status": "coded",
-        "coded_files": files_written,
-        "coded_at": datetime.now(timezone.utc).isoformat(),
     }).eq("id", idea_id).execute()
 
     supabase.table("task_queue").insert({

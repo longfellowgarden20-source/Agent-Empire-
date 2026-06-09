@@ -66,11 +66,10 @@ async def run():
 
     supabase.table("oracle_intelligence").insert({
         "category": "crypto",
-        "source_agent": "crypto_watcher",
-        "headline": intel.get("top_signal", ""),
-        "sentiment": intel.get("sentiment", "NEUTRAL"),
-        "data": intel,
-        "confidence": intel.get("confidence", 5),
+        "ticker_or_topic": intel.get("top_signal", ""),
+        "summary": f"{intel.get('sentiment', 'NEUTRAL')} — {intel.get('narrative', '')} — {intel.get('actionable', '')}",
+        "raw_data": intel,
+        "relevance_score": intel.get("confidence", 5),
     }).execute()
 
     duration_ms = int((datetime.now(timezone.utc) - start).total_seconds() * 1000)

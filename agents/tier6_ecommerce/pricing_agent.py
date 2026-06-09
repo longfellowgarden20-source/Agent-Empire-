@@ -76,7 +76,7 @@ async def run():
         os.environ["SUPABASE_SERVICE_ROLE_KEY"],
     )
 
-    businesses = supabase.table("businesses").select("id, name, metadata").eq("active", True).execute()
+    businesses = supabase.table("businesses").select("id, name").neq("status", "shutdown").execute()
     if not businesses.data:
         print("[PricingAgent] No active businesses")
         await log_agent_run("pricing_agent", "skipped", "No businesses", duration_ms=0)
@@ -84,8 +84,7 @@ async def run():
 
     products_to_check = []
     for b in businesses.data:
-        metadata = b.get("metadata") or {}
-        products = metadata.get("products", [])
+        products = []
         for product in products:
             product["business_id"] = b["id"]
             product["business_name"] = b.get("name", "")
@@ -107,11 +106,9 @@ async def run():
         if result.get("margin_at_risk") or result.get("action") != "HOLD":
             priority = 8 if result.get("margin_at_risk") else 5
             supabase.table("chairman_queue").insert({
-                "agent": "pricing_agent",
                 "priority": priority,
                 "message": f"[PRICING] {product.get('product_name')} — {result.get('action')} to ${result.get('recommended_price')}. {result.get('reasoning')}",
-                "data": {"product": product, "recommendation": result},
-                "status": "pending",
+                "requires_action": result.get("margin_at_risk", False),
             }).execute()
             alerts_sent += 1
 

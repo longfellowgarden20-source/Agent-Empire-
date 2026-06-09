@@ -68,20 +68,14 @@ async def judge_business(business: dict, supabase) -> dict:
     supabase.table("businesses").update({
         "war_room_score": result.get("final_score", quant["score"]),
         "war_room_recommendation": result.get("recommendation", quant["recommendation"]),
-        "war_room_data": {
-            **quant,
-            **result,
-            "scored_at": datetime.now(timezone.utc).isoformat(),
-        },
+        "last_scored_at": datetime.now(timezone.utc).isoformat(),
     }).eq("id", company_id).execute()
 
     if result.get("recommendation") in ("SHUTDOWN", "REVIEW", "SCALE"):
         supabase.table("chairman_queue").insert({
-            "agent": "war_room_judge",
             "priority": 9 if result.get("recommendation") == "SHUTDOWN" else 7,
             "message": f"[{result.get('recommendation')}] {name} scored {result.get('final_score')}/100. {result.get('reasoning', '')}",
-            "data": result,
-            "status": "pending",
+            "requires_action": result.get("recommendation") in ("SHUTDOWN", "SCALE"),
         }).execute()
 
     return result
@@ -97,7 +91,7 @@ async def run():
         os.environ["SUPABASE_SERVICE_ROLE_KEY"],
     )
 
-    businesses = supabase.table("businesses").select("*").eq("active", True).execute()
+    businesses = supabase.table("businesses").select("*").neq("status", "shutdown").execute()
     if not businesses.data:
         print("[WarRoomJudge] No active businesses to score")
         await log_agent_run("war_room_judge", "skipped", "No active businesses", duration_ms=0)

@@ -12,7 +12,7 @@ def _db() -> Client:
         os.environ["SUPABASE_SERVICE_ROLE_KEY"]
     )
 
-def save_to_memory(agent_name: str, key: str, value: Any) -> None:
+async def save_to_memory(agent_name: str, key: str, value: Any) -> None:
     """Save any value to agent memory. Upserts on agent+key."""
     _db().table("agent_memory").upsert({
         "agent": agent_name,
@@ -20,7 +20,7 @@ def save_to_memory(agent_name: str, key: str, value: Any) -> None:
         "value": value,
     }, on_conflict="agent,key").execute()
 
-def get_from_memory(agent_name: str, key: str, default: Any = None) -> Any:
+async def get_from_memory(agent_name: str, key: str, default: Any = None) -> Any:
     """Read a value from agent memory."""
     res = _db().table("agent_memory").select("value").eq("agent", agent_name).eq("key", key).limit(1).execute()
     if res.data:

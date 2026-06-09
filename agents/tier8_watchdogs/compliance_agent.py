@@ -91,11 +91,9 @@ async def run():
     for risk in actionable_risks:
         priority = 9 if risk.get("severity") == "CRITICAL" else 7 if risk.get("severity") == "HIGH" else 5
         supabase.table("chairman_queue").insert({
-            "agent": "compliance_agent",
             "priority": priority,
             "message": f"[COMPLIANCE {risk.get('severity')}] {risk.get('regulation')} — {risk.get('summary')} Action: {risk.get('action_required')}",
-            "data": risk,
-            "status": "pending",
+            "requires_action": risk.get("severity") in ("CRITICAL", "HIGH"),
         }).execute()
 
     risk_level = result.get("overall_risk_level", "GREEN")

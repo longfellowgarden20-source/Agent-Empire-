@@ -44,7 +44,7 @@ Return JSON:
 
 async def validate_idea(idea_record: dict, supabase) -> bool:
     idea_id = idea_record["id"]
-    idea_text = idea_record.get("idea", "")
+    idea_text = idea_record.get("title", "") or idea_record.get("description", "")
     print(f"[MarketValidator] Validating: {idea_text[:60]}")
 
     queries = [
@@ -77,12 +77,11 @@ async def validate_idea(idea_record: dict, supabase) -> bool:
 
     supabase.table("ideas").update({
         "status": new_status,
-        "score": score,
-        "validation_data": result,
-        "validated_at": datetime.now(timezone.utc).isoformat(),
+        "validated_score": score,
+        "market_data": result,
     }).eq("id", idea_id).execute()
 
-    print(f"[MarketValidator] Idea '{idea_text[:40]}' scored {score} → {new_status}")
+    print(f"[MarketValidator] Idea '{str(idea_text)[:40]}' scored {score} → {new_status}")
 
     if new_status == "validated":
         supabase.table("task_queue").insert({

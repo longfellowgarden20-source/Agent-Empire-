@@ -56,7 +56,7 @@ async def run():
 
     cutoff = (datetime.now(timezone.utc) - timedelta(days=30)).isoformat()
 
-    agent_runs = supabase.table("agent_runs").select("agent_name, status, duration_ms, cost_usd, created_at").gte("created_at", cutoff).execute()
+    agent_runs = supabase.table("agent_runs").select("agent, status, duration_ms, cost_usd, created_at").gte("created_at", cutoff).execute()
     businesses = supabase.table("businesses").select("name, revenue_7d, revenue_prev_7d, war_room_score, war_room_recommendation").execute()
 
     if not agent_runs.data:
@@ -67,7 +67,7 @@ async def run():
     # aggregate agent stats
     stats: dict[str, dict] = defaultdict(lambda: {"total": 0, "success": 0, "total_ms": 0, "total_cost": 0.0})
     for row in agent_runs.data:
-        agent = row.get("agent_name", "unknown")
+        agent = row.get("agent", "unknown")
         stats[agent]["total"] += 1
         if row.get("status") == "success":
             stats[agent]["success"] += 1
@@ -113,11 +113,9 @@ async def run():
     # write top optimizations to evolution_proposals
     for opt in analysis.get("top_optimizations", []):
         supabase.table("evolution_proposals").insert({
-            "proposed_by": "data_scientist",
-            "agent_name": None,
-            "proposal_type": "optimization",
-            "priority": 7 if opt.get("effort") == "low" else 5,
-            "data": opt,
+            "proposal": f"[optimization] {opt.get('change', '')}",
+            "reasoning": f"Expected impact: {opt.get('expected_impact')}. Effort: {opt.get('effort')}. Source: data_scientist analysis.",
+            "impact_estimate": opt.get("expected_impact", ""),
             "status": "pending",
         }).execute()
 
@@ -125,11 +123,9 @@ async def run():
     for wa in analysis.get("weakest_agents", []):
         if wa.get("business_impact") in ("high", "medium"):
             supabase.table("evolution_proposals").insert({
-                "proposed_by": "data_scientist",
-                "agent_name": wa.get("agent"),
-                "proposal_type": "fix_required",
-                "priority": 8 if wa.get("business_impact") == "high" else 6,
-                "data": wa,
+                "proposal": f"[fix_required] {wa.get('agent')}: {wa.get('priority_fix', '')}",
+                "reasoning": f"Agent: {wa.get('agent')}. Failure rate: {wa.get('failure_rate')}. Business impact: {wa.get('business_impact')}. Source: data_scientist analysis.",
+                "impact_estimate": f"Reduce failure rate for {wa.get('agent')} (business impact: {wa.get('business_impact')})",
                 "status": "pending",
             }).execute()
 

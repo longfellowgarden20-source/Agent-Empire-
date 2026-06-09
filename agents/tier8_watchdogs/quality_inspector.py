@@ -38,9 +38,9 @@ Return JSON:
 
 
 async def inspect_run(run_row: dict, supabase) -> dict | None:
-    agent_name = run_row.get("agent_name", "unknown")
-    output = str(run_row.get("output") or "")[:1000]
-    task_type = run_row.get("task_type", "general")
+    agent_name = run_row.get("agent", "unknown")
+    output = str(run_row.get("summary") or "")[:1000]
+    task_type = "general"
 
     if not output or output in ("None", ""):
         return None
@@ -73,7 +73,7 @@ async def run():
     cutoff = (datetime.now(timezone.utc) - timedelta(hours=24)).isoformat()
     runs = (
         supabase.table("agent_runs")
-        .select("id, agent_name, status, output, task_type")
+        .select("id, agent, status, summary")
         .eq("status", "success")
         .gte("created_at", cutoff)
         .execute()
@@ -96,11 +96,9 @@ async def run():
 
     for low in low_quality:
         supabase.table("chairman_queue").insert({
-            "agent": "quality_inspector",
             "priority": 6,
             "message": f"[QUALITY ALERT] {low.get('agent_name')} scored {low.get('quality_score')}/10. {low.get('summary', '')}",
-            "data": low,
-            "status": "pending",
+            "requires_action": False,
         }).execute()
 
     duration_ms = int((datetime.now(timezone.utc) - start).total_seconds() * 1000)

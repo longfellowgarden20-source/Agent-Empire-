@@ -57,12 +57,12 @@ async def run():
         return
 
     cutoff = (datetime.now(timezone.utc) - timedelta(days=7)).isoformat()
-    agent_runs = supabase.table("agent_runs").select("agent_name, cost_usd, status").gte("created_at", cutoff).execute()
+    agent_runs = supabase.table("agent_runs").select("agent, cost_usd, status").gte("created_at", cutoff).execute()
 
     # aggregate costs per agent
     cost_by_agent: dict[str, float] = {}
     for run_row in (agent_runs.data or []):
-        agent = run_row.get("agent_name", "unknown")
+        agent = run_row.get("agent", "unknown")
         cost = float(run_row.get("cost_usd") or 0)
         cost_by_agent[agent] = cost_by_agent.get(agent, 0) + cost
 
@@ -92,11 +92,9 @@ async def run():
         result = {"summary": raw[:200], "recommendations": []}
 
     supabase.table("chairman_queue").insert({
-        "agent": "capital_allocator",
         "priority": 8,
         "message": f"[CAPITAL REPORT] {result.get('summary', '')} ROI: {result.get('portfolio_roi', 'N/A')}x",
-        "data": result,
-        "status": "pending",
+        "requires_action": True,
     }).execute()
 
     # apply budget changes to businesses table

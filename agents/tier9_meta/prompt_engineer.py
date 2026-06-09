@@ -36,18 +36,19 @@ Return JSON:
 
 
 async def improve_prompt(proposal: dict, supabase) -> bool:
-    agent_name = proposal.get("agent_name", "unknown")
-    data = proposal.get("data") or {}
+    reasoning = proposal.get("reasoning") or ""
+    proposal_text = proposal.get("proposal") or ""
+    agent_name = proposal_text.split(":")[0].strip("[]") if ":" in proposal_text else "unknown"
 
     print(f"[PromptEngineer] Improving prompts for: {agent_name}")
 
     raw = await smart_llm(
         PROMPT_IMPROVEMENT_PROMPT.format(
             agent_name=agent_name,
-            problem=data.get("root_cause") or data.get("description") or proposal.get("proposal_type", ""),
-            failure_patterns=json.dumps(data.get("failure_patterns") or data.get("issues") or [])[:400],
-            current_behavior=data.get("current_behavior") or data.get("summary") or "See proposal data",
-            expected_behavior=data.get("proposed_fix") or data.get("action_required") or "Improve reliability",
+            problem=reasoning[:200],
+            failure_patterns="[]",
+            current_behavior=proposal_text[:200],
+            expected_behavior="Improve reliability",
         ),
         max_tokens=1000,
     )
@@ -61,22 +62,15 @@ async def improve_prompt(proposal: dict, supabase) -> bool:
 
     # write improved prompt back as new proposal
     supabase.table("evolution_proposals").insert({
-        "proposed_by": "prompt_engineer",
-        "agent_name": agent_name,
-        "proposal_type": "prompt_improvement",
-        "priority": improvement.get("confidence", 5),
-        "data": {
-            **improvement,
-            "source_proposal_id": proposal.get("id"),
-            "proposed_at": datetime.now(timezone.utc).isoformat(),
-        },
+        "proposal": f"[prompt_improvement] {agent_name}: {improvement.get('version', 'v2')} — {improvement.get('expected_improvement', '')}",
+        "reasoning": f"Key changes: {improvement.get('key_changes', [])}. Confidence: {improvement.get('confidence', 5)}. Source proposal id: {proposal.get('id')}.",
+        "impact_estimate": improvement.get("expected_improvement", ""),
         "status": "ready_to_apply",
     }).execute()
 
     # mark source proposal as processed
     supabase.table("evolution_proposals").update({
         "status": "processed",
-        "processed_at": datetime.now(timezone.utc).isoformat(),
     }).eq("id", proposal["id"]).execute()
 
     return True
@@ -96,8 +90,7 @@ async def run():
         supabase.table("evolution_proposals")
         .select("*")
         .eq("status", "pending")
-        .in_("proposal_type", ["skill_improvement", "fix_required"])
-        .order("priority", desc=True)
+        .order("created_at", desc=True)
         .limit(10)
         .execute()
     )

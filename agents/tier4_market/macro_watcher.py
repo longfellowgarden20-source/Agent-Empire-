@@ -68,11 +68,10 @@ async def run():
 
     supabase.table("oracle_intelligence").insert({
         "category": "macro",
-        "source_agent": "macro_watcher",
-        "headline": intel.get("headline_event", ""),
-        "sentiment": intel.get("market_impact", "NEUTRAL"),
-        "data": intel,
-        "confidence": intel.get("confidence", 5),
+        "ticker_or_topic": intel.get("headline_event", ""),
+        "summary": f"{intel.get('market_impact', 'NEUTRAL')} — {intel.get('summary', '')}",
+        "raw_data": intel,
+        "relevance_score": intel.get("confidence", 5),
     }).execute()
 
     duration_ms = int((datetime.now(timezone.utc) - start).total_seconds() * 1000)

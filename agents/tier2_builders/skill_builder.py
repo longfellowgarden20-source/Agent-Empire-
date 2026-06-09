@@ -49,7 +49,7 @@ async def run():
     )
 
     cutoff = (datetime.now(timezone.utc) - timedelta(days=7)).isoformat()
-    runs = supabase.table("agent_runs").select("agent_name, status, output, error, duration_ms").gte("created_at", cutoff).execute()
+    runs = supabase.table("agent_runs").select("agent, status, summary, duration_ms").gte("created_at", cutoff).execute()
 
     if not runs.data:
         print("[SkillBuilder] No agent runs in last 7 days")
@@ -59,12 +59,12 @@ async def run():
     # aggregate success rates
     stats: dict[str, dict] = defaultdict(lambda: {"total": 0, "success": 0, "failures": []})
     for row in runs.data:
-        agent = row.get("agent_name", "unknown")
+        agent = row.get("agent", "unknown")
         stats[agent]["total"] += 1
         if row.get("status") == "success":
             stats[agent]["success"] += 1
         else:
-            error = row.get("error") or row.get("output") or "unknown error"
+            error = row.get("summary") or "unknown error"
             stats[agent]["failures"].append(str(error)[:200])
 
     # compute success rates, find bottom 20%
@@ -110,11 +110,9 @@ async def run():
 
     for proposal in result.get("proposals", []):
         supabase.table("evolution_proposals").insert({
-            "proposed_by": "skill_builder",
-            "agent_name": proposal.get("agent_name"),
-            "proposal_type": "skill_improvement",
-            "priority": proposal.get("priority", 5),
-            "data": proposal,
+            "proposal": f"[skill_improvement] {proposal.get('agent_name')}: {proposal.get('proposed_fix', '')}",
+            "reasoning": f"Agent: {proposal.get('agent_name')}. Success rate: {proposal.get('current_success_rate')}. Root cause: {proposal.get('root_cause')}. Patterns: {proposal.get('failure_patterns')}. Priority: {proposal.get('priority', 5)}.",
+            "impact_estimate": proposal.get("expected_improvement", ""),
             "status": "pending",
         }).execute()
 

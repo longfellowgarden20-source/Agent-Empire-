@@ -22,7 +22,7 @@ async def run():
         os.environ["SUPABASE_SERVICE_ROLE_KEY"],
     )
 
-    businesses = supabase.table("businesses").select("id, name, revenue_7d, revenue_prev_7d, active").eq("active", True).execute()
+    businesses = supabase.table("businesses").select("id, name, revenue_7d, revenue_prev_7d").neq("status", "shutdown").execute()
     if not businesses.data:
         print("[FinanceTracker] No active businesses")
         await log_agent_run("finance_tracker", "skipped", "No businesses", duration_ms=0)
@@ -59,11 +59,9 @@ async def run():
     for alert in alerts:
         change_str = f"{alert['change_pct']:.0%}"
         supabase.table("chairman_queue").insert({
-            "agent": "finance_tracker",
             "priority": 9 if alert["severity"] == "CRITICAL" else 7,
             "message": f"[REVENUE DROP {alert['severity']}] {alert['name']} dropped {change_str} WoW (${alert['revenue_prev_7d']:.2f} → ${alert['revenue_7d']:.2f}). Investigate now.",
-            "data": alert,
-            "status": "pending",
+            "requires_action": alert["severity"] == "CRITICAL",
         }).execute()
 
     duration_ms = int((datetime.now(timezone.utc) - start).total_seconds() * 1000)

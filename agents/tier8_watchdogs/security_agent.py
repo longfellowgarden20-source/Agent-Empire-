@@ -32,8 +32,8 @@ async def run():
     # last 24 hours for baseline
     cutoff_24h = (datetime.now(timezone.utc) - timedelta(hours=24)).isoformat()
 
-    recent_runs = supabase.table("agent_runs").select("agent_name, status, cost_usd, created_at, error").gte("created_at", cutoff_1h).execute()
-    baseline_runs = supabase.table("agent_runs").select("agent_name, status, cost_usd").gte("created_at", cutoff_24h).execute()
+    recent_runs = supabase.table("agent_runs").select("agent, status, cost_usd, created_at, summary").gte("created_at", cutoff_1h).execute()
+    baseline_runs = supabase.table("agent_runs").select("agent, status, cost_usd").gte("created_at", cutoff_24h).execute()
 
     if not recent_runs.data:
         print("[SecurityAgent] No recent runs")
@@ -45,18 +45,18 @@ async def run():
     for row in (baseline_runs.data or []):
         cost = float(row.get("cost_usd") or 0)
         if cost > 0:
-            baseline_costs[row.get("agent_name", "unknown")].append(cost)
+            baseline_costs[row.get("agent", "unknown")].append(cost)
 
     # analyze recent runs
     recent_stats: dict[str, dict] = defaultdict(lambda: {"total": 0, "failures": 0, "cost": 0.0, "errors": []})
     for row in recent_runs.data:
-        agent = row.get("agent_name", "unknown")
+        agent = row.get("agent", "unknown")
         recent_stats[agent]["total"] += 1
         cost = float(row.get("cost_usd") or 0)
         recent_stats[agent]["cost"] += cost
         if row.get("status") != "success":
             recent_stats[agent]["failures"] += 1
-            error = str(row.get("error") or "unknown")[:150]
+            error = str(row.get("summary") or "unknown")[:150]
             recent_stats[agent]["errors"].append(error)
 
     alerts = []
@@ -102,11 +102,9 @@ async def run():
             message = f"[SECURITY: COST SPIKE] {agent} spending {alert['multiplier']:.1f}x normal (${alert['current_avg_cost']:.4f} vs ${alert['baseline_avg_cost']:.4f} baseline)"
 
         supabase.table("chairman_queue").insert({
-            "agent": "security_agent",
             "priority": 10 if severity == "CRITICAL" else 8,
             "message": message,
-            "data": alert,
-            "status": "pending",
+            "requires_action": True,
         }).execute()
 
     duration_ms = int((datetime.now(timezone.utc) - start).total_seconds() * 1000)

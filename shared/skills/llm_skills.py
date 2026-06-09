@@ -52,6 +52,26 @@ async def smart_llm(prompt: str, system: str = "", max_tokens: int = 2000) -> st
     )
     return res.content[0].text
 
+async def agent_llm(prompt: str, system: str = "", max_tokens: int = 2000) -> str:
+    """Gemini 1.5 Pro — agent tasks, multi-step reasoning. Free tier: 1500 req/day, 1M context."""
+    import random
+    keys = [k for k in [
+        os.environ.get("GEMINI_API_KEY"),
+        os.environ.get("GEMINI_API_KEY_2"),
+    ] if k]
+    if not keys:
+        raise ValueError("No Gemini keys configured")
+    key = random.choice(keys)
+    full_prompt = f"{system}\n\n{prompt}" if system else prompt
+    async with httpx.AsyncClient(timeout=60) as client:
+        resp = await client.post(
+            f"https://generativelanguage.googleapis.com/v1beta/models/gemini-1.5-pro:generateContent?key={key}",
+            json={"contents": [{"parts": [{"text": full_prompt}]}], "generationConfig": {"maxOutputTokens": max_tokens, "temperature": 0.3}},
+        )
+        resp.raise_for_status()
+        data = resp.json()
+        return data["candidates"][0]["content"]["parts"][0]["text"]
+
 async def cheap_llm(prompt: str, max_tokens: int = 300) -> str:
     """Groq llama-3.1-8b — cost priority. Use for simple classification, formatting, routing."""
     import random

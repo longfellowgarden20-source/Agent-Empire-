@@ -13,7 +13,7 @@ async def live_search(query: str, max_results: int = 5) -> list[dict]:
     """
     api_key = os.environ.get("TAVILY_API_KEY")
     if not api_key:
-        raise ValueError("TAVILY_API_KEY not configured")
+        return [{"title": "No results", "content": "TAVILY_API_KEY not configured", "url": ""}]
     async with httpx.AsyncClient(timeout=15) as client:
         res = await client.post(
             "https://api.tavily.com/search",
@@ -38,7 +38,9 @@ async def deep_research(query: str) -> str:
     """
     api_key = os.environ.get("PERPLEXITY_API_KEY")
     if not api_key:
-        raise ValueError("PERPLEXITY_API_KEY not configured")
+        # fallback to Tavily if Perplexity not configured
+        results = await live_search(query, max_results=8)
+        return "\n\n".join(f"{r.get('title','')}: {r.get('content','')}" for r in results)
     async with httpx.AsyncClient(timeout=30) as client:
         res = await client.post(
             "https://api.perplexity.ai/chat/completions",

@@ -5,10 +5,12 @@ import { usePathname } from "next/navigation";
 
 const links = [
   { href: "/", label: "Home" },
-  { href: "/oracle", label: "Oracle" },
+  { href: "/oracle", label: "Intel" },
+  { href: "/prospects", label: "Prospects" },
+  { href: "/ideas", label: "Ideas" },
   { href: "/agents", label: "Agents" },
-  { href: "/finance", label: "Finance" },
   { href: "/logs", label: "Logs" },
+  { href: "/finance", label: "Finance" },
   { href: "/security", label: "Security" },
 ];
 

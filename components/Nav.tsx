@@ -77,12 +77,14 @@ export default function Nav() {
 
   return (
     <nav
-      className="flex items-center gap-8 px-6 border-b shrink-0"
-      style={{ borderColor: "#1f1f1f", background: "#0a0a0a", height: 48 }}
+      style={{
+        display: "flex", alignItems: "center", gap: 16, paddingLeft: 16, paddingRight: 16,
+        borderBottom: "1px solid #1f1f1f", background: "#0a0a0a", height: 48,
+        flexShrink: 0, minWidth: 0, overflowX: "auto", overflowY: "hidden",
+      }}
     >
       <span
-        className="text-sm font-semibold tracking-widest uppercase shrink-0"
-        style={{ color: "#6366f1", fontFamily: "var(--font-geist-mono)" }}
+        style={{ color: "#6366f1", fontFamily: "var(--font-geist-mono)", fontSize: 13, fontWeight: 600, letterSpacing: "0.15em", textTransform: "uppercase", flexShrink: 0 }}
       >
         ◈ WAR ROOM
       </span>

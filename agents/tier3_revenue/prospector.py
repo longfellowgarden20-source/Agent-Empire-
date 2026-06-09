@@ -14,10 +14,7 @@ from shared.skills.scoring_skills import log_agent_run
 
 TARGET_INDUSTRIES = [
     "e-commerce stores doing $1M-$50M revenue",
-    "digital marketing agencies 10-50 employees",
     "SaaS companies seed to series A",
-    "real estate investment firms",
-    "professional services firms law accounting consulting",
 ]
 
 SCORE_PROMPT = """Score this prospect as a potential client for an AI automation agency.
@@ -44,7 +41,7 @@ Respond ONLY with JSON:
 async def find_prospects_for_industry(industry: str) -> list[dict]:
     query = f"company {industry} website contact hiring 2026"
     try:
-        results = await live_search(query, max_results=8)
+        results = await live_search(query, max_results=3)
         prospects = []
         for r in results:
             if r.get("url") and r.get("title"):

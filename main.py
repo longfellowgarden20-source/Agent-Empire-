@@ -55,8 +55,8 @@ async def scheduler_loop():
         if hour == 7 and minute < 5:
             await maybe_run("chairman", "agents.tier1_gods.chairman", 60 * 23)
 
-        # Oracle — every 4 hours
-        await maybe_run("oracle", "agents.tier1_gods.oracle", 60 * 4)
+        # Oracle — every 8 hours
+        await maybe_run("oracle", "agents.tier1_gods.oracle", 60 * 8)
 
         # War Room Judge — Sunday 8am
         if is_sunday and hour == 8 and minute < 5:
@@ -90,8 +90,8 @@ async def scheduler_loop():
             await maybe_run("skill_builder", "agents.tier2_builders.skill_builder", 60 * 167)
 
         # ── Tier 3 Revenue ───────────────────────────────────────────────
-        # Prospector — every 6 hours
-        await maybe_run("prospector", "agents.tier3_revenue.prospector", 60 * 6)
+        # Prospector — once daily
+        await maybe_run("prospector", "agents.tier3_revenue.prospector", 60 * 23)
 
         # Researcher — every 2 hours on weekdays
         if is_weekday and 8 <= hour <= 20:

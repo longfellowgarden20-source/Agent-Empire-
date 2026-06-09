@@ -71,7 +71,7 @@ async def fetch_category(cat: dict) -> dict:
                 "relevance_score": 8,
             }
         else:
-            results = await live_search(cat["query"], max_results=5)
+            results = await live_search(cat["query"], max_results=2)
             combined = "\n\n".join(
                 f"[{r.get('title', '')}] {r.get('content', '')}" for r in results
             )

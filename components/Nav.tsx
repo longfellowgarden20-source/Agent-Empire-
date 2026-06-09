@@ -4,15 +4,57 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { supabase } from "@/lib/supabase";
 
-const links = [
-  { href: "/", label: "Home" },
-  { href: "/oracle", label: "Intel" },
-  { href: "/prospects", label: "Prospects" },
-  { href: "/ideas", label: "Ideas" },
-  { href: "/agents", label: "Agents" },
-  { href: "/logs", label: "Logs" },
-  { href: "/finance", label: "Finance" },
-  { href: "/security", label: "Security" },
+const groups = [
+  {
+    label: "Command",
+    links: [
+      { href: "/", label: "Home" },
+      { href: "/brief", label: "Brief" },
+      { href: "/decisions", label: "Decisions" },
+    ],
+  },
+  {
+    label: "Empire",
+    links: [
+      { href: "/companies", label: "Companies" },
+      { href: "/revenue", label: "Revenue" },
+      { href: "/builds", label: "Builds" },
+    ],
+  },
+  {
+    label: "Intelligence",
+    links: [
+      { href: "/oracle", label: "Intel" },
+      { href: "/trends", label: "Trends" },
+      { href: "/competitors", label: "Competitors" },
+    ],
+  },
+  {
+    label: "Sales",
+    links: [
+      { href: "/prospects", label: "Prospects" },
+      { href: "/outreach", label: "Outreach" },
+      { href: "/deals", label: "Deals" },
+    ],
+  },
+  {
+    label: "Content",
+    links: [
+      { href: "/content", label: "Content" },
+      { href: "/social", label: "Social" },
+      { href: "/ideas", label: "Ideas" },
+    ],
+  },
+  {
+    label: "Ops",
+    links: [
+      { href: "/agents", label: "Agents" },
+      { href: "/tasks", label: "Tasks" },
+      { href: "/logs", label: "Logs" },
+      { href: "/health", label: "Health" },
+      { href: "/settings", label: "Settings" },
+    ],
+  },
 ];
 
 export default function Nav() {
@@ -45,24 +87,36 @@ export default function Nav() {
         ◈ WAR ROOM
       </span>
 
-      <div className="flex items-center gap-1 flex-1">
-        {links.map((link) => {
-          const active = pathname === link.href;
-          return (
-            <Link
-              key={link.href}
-              href={link.href}
-              className="px-3 py-1 text-xs uppercase tracking-wider transition-colors rounded-sm"
-              style={{
-                color: active ? "#f5f5f5" : "#555555",
-                borderBottom: active ? "1px solid #6366f1" : "1px solid transparent",
-                fontFamily: "var(--font-geist-mono)",
-              }}
-            >
-              {link.label}
-            </Link>
-          );
-        })}
+      <div style={{ display: "flex", alignItems: "center", gap: 0, flex: 1, overflowX: "auto" }}>
+        {groups.map((group, gi) => (
+          <div key={group.label} style={{ display: "flex", alignItems: "center" }}>
+            {gi > 0 && (
+              <span style={{ color: "#222", padding: "0 6px", fontSize: 10, userSelect: "none" }}>│</span>
+            )}
+            {group.links.map((link) => {
+              const active = pathname === link.href;
+              return (
+                <Link
+                  key={link.href}
+                  href={link.href}
+                  style={{
+                    padding: "4px 8px",
+                    fontSize: 10,
+                    textTransform: "uppercase",
+                    letterSpacing: "0.08em",
+                    fontFamily: "var(--font-geist-mono)",
+                    color: active ? "#f5f5f5" : "#444",
+                    borderBottom: active ? "1px solid #6366f1" : "1px solid transparent",
+                    whiteSpace: "nowrap",
+                    textDecoration: "none",
+                  }}
+                >
+                  {link.label}
+                </Link>
+              );
+            })}
+          </div>
+        ))}
       </div>
 
       <div style={{ display: "flex", alignItems: "center", gap: 12 }}>

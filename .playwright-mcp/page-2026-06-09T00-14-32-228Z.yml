@@ -1,0 +1,173 @@
+- generic [active] [ref=e1]:
+  - navigation [ref=e2]:
+    - generic [ref=e3]: ◈ WAR ROOM
+    - generic [ref=e4]:
+      - link "Home" [ref=e5] [cursor=pointer]:
+        - /url: /
+      - link "Oracle" [ref=e6] [cursor=pointer]:
+        - /url: /oracle
+      - link "Agents" [ref=e7] [cursor=pointer]:
+        - /url: /agents
+      - link "Finance" [ref=e8] [cursor=pointer]:
+        - /url: /finance
+      - link "Logs" [ref=e9] [cursor=pointer]:
+        - /url: /logs
+      - link "Security" [ref=e10] [cursor=pointer]:
+        - /url: /security
+  - main [ref=e11]:
+    - generic [ref=e12]:
+      - generic [ref=e13]:
+        - generic [ref=e14]:
+          - generic [ref=e15]: $2,847
+          - generic [ref=e16]: ▲ 12%
+          - generic [ref=e17]: today
+        - generic [ref=e19]:
+          - generic [ref=e20]:
+            - text: "43"
+            - generic [ref=e21]: /47
+          - generic [ref=e22]: agents running
+        - generic [ref=e24]:
+          - generic [ref=e25]: "2"
+          - generic [ref=e26]: need attention
+      - generic [ref=e27]:
+        - generic [ref=e28]:
+          - generic [ref=e29]:
+            - generic [ref=e30]: ⚠ Attention
+            - generic [ref=e31]:
+              - generic [ref=e32]:
+                - generic [ref=e33]:
+                  - paragraph [ref=e34]: Lead Gen close rate dropped to 4% — was 18%
+                  - paragraph [ref=e35]: Copywriter prompts may be stale. Skill Builder flagged this.
+                - generic [ref=e36]:
+                  - button "APPROVE REWRITE" [ref=e37]
+                  - button "REVIEW" [ref=e38]
+              - generic [ref=e39]:
+                - generic [ref=e40]:
+                  - paragraph [ref=e41]: 2 deals need reply in < 2h
+                  - paragraph [ref=e42]: Deal Closer has drafted responses and they are ready to send.
+                - generic [ref=e43]:
+                  - button "SEND ALL" [ref=e44]
+                  - button "REVIEW" [ref=e45]
+          - generic [ref=e46]:
+            - generic [ref=e47]:
+              - generic [ref=e48]: Live
+              - generic [ref=e50]:
+                - generic [ref=e51]:
+                  - generic [ref=e52]: 07:42
+                  - generic [ref=e53]: Prospector
+                  - generic [ref=e54]: found 12 new leads
+                - generic [ref=e55]:
+                  - generic [ref=e56]: 07:41
+                  - generic [ref=e57]: Oracle
+                  - generic [ref=e58]: macro brief published
+                - generic [ref=e59]:
+                  - generic [ref=e60]: 07:40
+                  - generic [ref=e61]: Copywriter
+                  - generic [ref=e62]: 8 emails drafted
+                - generic [ref=e63]:
+                  - generic [ref=e64]: 07:38
+                  - generic [ref=e65]: Researcher
+                  - generic [ref=e66]: AcmeCorp intel done
+                - generic [ref=e67]:
+                  - generic [ref=e68]: 07:35
+                  - generic [ref=e69]: Strategist
+                  - generic [ref=e70]: weekly content plan set
+                - generic [ref=e71]:
+                  - generic [ref=e72]: 07:30
+                  - generic [ref=e73]: Capital Allocator
+                  - generic [ref=e74]: report ready
+            - generic [ref=e75]:
+              - generic [ref=e76]: Worlds
+              - generic [ref=e77]:
+                - generic [ref=e78]:
+                  - generic [ref=e79]: ●
+                  - generic [ref=e80]: Stock Intelligence
+                - generic [ref=e81]:
+                  - generic [ref=e82]: ●
+                  - generic [ref=e83]: Lead Gen Agency
+                - generic [ref=e84]:
+                  - generic [ref=e85]: ●
+                  - generic [ref=e86]: Content Empire
+                - generic [ref=e87]:
+                  - generic [ref=e88]: ●
+                  - generic [ref=e89]: Ecommerce Ops
+                  - generic [ref=e90]: REVIEW
+                - generic [ref=e91]:
+                  - generic [ref=e92]: ●
+                  - generic [ref=e93]: Crypto Desk
+                  - generic [ref=e94]: BUILDING
+        - generic [ref=e95]:
+          - generic [ref=e96]: Businesses
+          - generic [ref=e97]:
+            - generic [ref=e98] [cursor=pointer]:
+              - generic [ref=e99]:
+                - generic [ref=e100]: Stock Intelligence
+                - generic [ref=e101]: ●
+              - generic [ref=e102]:
+                - generic [ref=e103]:
+                  - generic [ref=e104]: score
+                  - generic [ref=e105]: "82"
+                - generic [ref=e106]:
+                  - generic [ref=e107]: 7d rev
+                  - generic [ref=e108]: $5.1k
+              - generic [ref=e109]:
+                - generic [ref=e110]: active
+                - generic [ref=e111]: ▲
+            - generic [ref=e112] [cursor=pointer]:
+              - generic [ref=e113]:
+                - generic [ref=e114]: Lead Gen Agency
+                - generic [ref=e115]: ●
+              - generic [ref=e116]:
+                - generic [ref=e117]:
+                  - generic [ref=e118]: score
+                  - generic [ref=e119]: "78"
+                - generic [ref=e120]:
+                  - generic [ref=e121]: 7d rev
+                  - generic [ref=e122]: $6.2k
+              - generic [ref=e123]:
+                - generic [ref=e124]: active
+                - generic [ref=e125]: ▲
+            - generic [ref=e126] [cursor=pointer]:
+              - generic [ref=e127]:
+                - generic [ref=e128]: Content Empire
+                - generic [ref=e129]: ●
+              - generic [ref=e130]:
+                - generic [ref=e131]:
+                  - generic [ref=e132]: score
+                  - generic [ref=e133]: "65"
+                - generic [ref=e134]:
+                  - generic [ref=e135]: 7d rev
+                  - generic [ref=e136]: $3.8k
+              - generic [ref=e137]:
+                - generic [ref=e138]: active
+                - generic [ref=e139]: →
+            - generic [ref=e140] [cursor=pointer]:
+              - generic [ref=e141]:
+                - generic [ref=e142]: Ecommerce Ops
+                - generic [ref=e143]: ●
+              - generic [ref=e144]:
+                - generic [ref=e145]:
+                  - generic [ref=e146]: score
+                  - generic [ref=e147]: "38"
+                - generic [ref=e148]:
+                  - generic [ref=e149]: 7d rev
+                  - generic [ref=e150]: $1.4k
+              - generic [ref=e151]:
+                - generic [ref=e152]: review
+                - generic [ref=e153]: ▼
+            - generic [ref=e154] [cursor=pointer]:
+              - generic [ref=e155]:
+                - generic [ref=e156]: Crypto Desk
+                - generic [ref=e157]: ●
+              - generic [ref=e158]:
+                - generic [ref=e159]:
+                  - generic [ref=e160]: score
+                  - generic [ref=e161]: —
+                - generic [ref=e162]:
+                  - generic [ref=e163]: 7d rev
+                  - generic [ref=e164]: —
+              - generic [ref=e165]:
+                - generic [ref=e166]: building
+                - generic [ref=e167]: →
+  - button "Open Next.js Dev Tools" [ref=e173] [cursor=pointer]:
+    - img [ref=e174]

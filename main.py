@@ -14,6 +14,17 @@ from fastapi.responses import JSONResponse
 
 ET = ZoneInfo("America/New_York")
 
+# --- pause check ---
+
+async def is_paused() -> bool:
+    try:
+        from supabase import create_client
+        sb = create_client(os.environ["NEXT_PUBLIC_SUPABASE_URL"], os.environ["SUPABASE_SERVICE_ROLE_KEY"])
+        res = sb.table("agent_memory").select("value").eq("agent", "system").eq("key", "paused").single().execute()
+        return res.data and res.data.get("value") is True
+    except Exception:
+        return False
+
 # --- scheduler ---
 
 async def run_agent(name: str, module_path: str):
@@ -32,6 +43,11 @@ async def scheduler_loop():
     last_ran = {}
 
     while True:
+        if await is_paused():
+            print("[Scheduler] System paused — sleeping 60s")
+            await asyncio.sleep(60)
+            continue
+
         now = datetime.now(ET)
         hour = now.hour
         minute = now.minute

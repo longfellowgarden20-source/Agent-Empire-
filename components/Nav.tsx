@@ -2,6 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
+import { supabase } from "@/lib/supabase";
 
 const links = [
   { href: "/", label: "Home" },
@@ -16,6 +17,21 @@ const links = [
 
 export default function Nav() {
   const pathname = usePathname();
+  const [paused, setPaused] = React.useState(false);
+  const [toggling, setToggling] = React.useState(false);
+
+  React.useEffect(() => {
+    supabase.from("agent_memory").select("value").eq("agent", "system").eq("key", "paused").single()
+      .then(({ data }) => { if (data) setPaused(data.value === true); });
+  }, []);
+
+  async function togglePause() {
+    setToggling(true);
+    const next = !paused;
+    await supabase.from("agent_memory").upsert({ agent: "system", key: "paused", value: next }, { onConflict: "agent,key" });
+    setPaused(next);
+    setToggling(false);
+  }
 
   return (
     <nav
@@ -49,13 +65,30 @@ export default function Nav() {
         })}
       </div>
 
-      <span
-        className="text-xs shrink-0 tabular-nums"
-        style={{ color: "#555555", fontFamily: "var(--font-geist-mono)" }}
-        suppressHydrationWarning
-      >
-        <Clock />
-      </span>
+      <div style={{ display: "flex", alignItems: "center", gap: 12 }}>
+        <button
+          onClick={togglePause}
+          disabled={toggling}
+          style={{
+            fontFamily: "monospace", fontSize: 10, letterSpacing: 1,
+            padding: "4px 12px", borderRadius: 2, cursor: toggling ? "wait" : "pointer",
+            background: paused ? "#1a0000" : "#001a00",
+            color: paused ? "#ef4444" : "#22c55e",
+            border: `1px solid ${paused ? "#ef444440" : "#22c55e40"}`,
+            textTransform: "uppercase",
+          }}
+        >
+          {toggling ? "..." : paused ? "⏸ PAUSED" : "▶ RUNNING"}
+        </button>
+
+        <span
+          className="text-xs shrink-0 tabular-nums"
+          style={{ color: "#555555", fontFamily: "var(--font-geist-mono)" }}
+          suppressHydrationWarning
+        >
+          <Clock />
+        </span>
+      </div>
     </nav>
   );
 }

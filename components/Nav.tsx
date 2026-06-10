@@ -1,5 +1,6 @@
 "use client";
 
+import React from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { supabase } from "@/lib/supabase";
@@ -176,5 +177,3 @@ function Clock() {
 
   return <>{time}</>;
 }
-
-import React from "react";

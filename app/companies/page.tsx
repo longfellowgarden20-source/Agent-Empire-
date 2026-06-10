@@ -9,10 +9,10 @@ type Business = {
   name: string;
   slug: string;
   status: string;
-  description: string | null;
+  
   war_room_score: number | null;
-  agent_count: number | null;
-  revenue_today: number | null;
+  
+  revenue_7d: number | null;
   created_at: string;
 };
 
@@ -47,7 +47,7 @@ export default function CompaniesPage() {
   async function fetchData() {
     const { data } = await supabase
       .from("businesses")
-      .select("id,name,slug,status,description,war_room_score,agent_count,revenue_today,created_at")
+      .select("id,name,slug,status,war_room_score,revenue_7d,revenue_prev_7d,created_at")
       .order("created_at", { ascending: false });
     if (data) setBusinesses(data as Business[]);
     setLoading(false);
@@ -220,7 +220,7 @@ export default function CompaniesPage() {
                         overflow: "hidden",
                       }}
                     >
-                      {b.description ?? "No description"}
+                      {b.status === "active" ? "Active business" : b.status === "building" ? "Under construction" : b.status ?? "—"}
                     </div>
                   </div>
                   <div
@@ -308,7 +308,7 @@ export default function CompaniesPage() {
                         Today
                       </div>
                       <div style={{ fontSize: 14, fontWeight: 600, color: "#22c55e" }}>
-                        {fmtRevenue(b.revenue_today)}
+                        {fmtRevenue(b.revenue_7d)}
                       </div>
                     </div>
                     <div>
@@ -316,7 +316,7 @@ export default function CompaniesPage() {
                         Agents
                       </div>
                       <div style={{ fontSize: 14, fontWeight: 600, color: "#f5f5f5" }}>
-                        {b.agent_count ?? 0}
+                        {(b as any).agent_count ?? "—"}
                       </div>
                     </div>
                   </div>

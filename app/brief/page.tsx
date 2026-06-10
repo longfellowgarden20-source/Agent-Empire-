@@ -8,7 +8,7 @@ type ChairmanItem = {
   message: string;
   priority: number;
   category: string | null;
-  read: boolean;
+  sent_in_brief: boolean;
   created_at: string;
 };
 
@@ -98,8 +98,8 @@ export default function BriefPage() {
 
   async function markRead(id: string) {
     setMarkingId(id);
-    await supabase.from("chairman_queue").update({ read: true }).eq("id", id);
-    setItems((prev) => prev.map((i) => (i.id === id ? { ...i, read: true } : i)));
+    await supabase.from("chairman_queue").update({ sent_in_brief: true }).eq("id", id);
+    setItems((prev) => prev.map((i) => (i.id === id ? { ...i, sent_in_brief: true } : i)));
     setMarkingId(null);
   }
 
@@ -117,7 +117,7 @@ export default function BriefPage() {
 
   const todayItems = groupedByDay[activeDay] || [];
   const attentionItems = todayItems
-    .filter((i) => !i.read)
+    .filter((i) => !i.sent_in_brief)
     .sort((a, b) => b.priority - a.priority)
     .slice(0, 3);
 
@@ -296,7 +296,7 @@ export default function BriefPage() {
             const isToday = day === todayKey;
             const isActive = day === activeDay;
             const dayItems = groupedByDay[day];
-            const unread = dayItems.filter((i) => !i.read).length;
+            const unread = dayItems.filter((i) => !i.sent_in_brief).length;
             return (
               <button
                 key={day}
@@ -366,9 +366,9 @@ export default function BriefPage() {
               key={item.id}
               style={{
                 padding: "10px 14px",
-                border: `1px solid ${item.read ? "#1a1a1a" : "#f59e0b20"}`,
+                border: `1px solid ${item.sent_in_brief ? "#1a1a1a" : "#f59e0b20"}`,
                 borderRadius: 4,
-                background: item.read ? "#0a0a0a" : "#0d0a00",
+                background: item.sent_in_brief ? "#0a0a0a" : "#0d0a00",
                 display: "flex",
                 gap: 12,
                 alignItems: "flex-start",
@@ -379,13 +379,13 @@ export default function BriefPage() {
                   width: 6,
                   height: 6,
                   borderRadius: "50%",
-                  background: item.read ? "#333" : "#f59e0b",
+                  background: item.sent_in_brief ? "#333" : "#f59e0b",
                   marginTop: 3,
                   flexShrink: 0,
                 }}
               />
               <div style={{ flex: 1 }}>
-                <p style={{ fontSize: 11, color: item.read ? "#666" : "#ddd", lineHeight: 1.5 }}>
+                <p style={{ fontSize: 11, color: item.sent_in_brief ? "#666" : "#ddd", lineHeight: 1.5 }}>
                   {item.message}
                 </p>
                 <div style={{ display: "flex", gap: 12, marginTop: 4 }}>

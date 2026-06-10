@@ -8,11 +8,9 @@ type Business = {
   name: string;
   slug: string;
   status: string;
-  revenue_today: number | null;
-  revenue_week: number | null;
-  revenue_month: number | null;
-  mrr: number | null;
-  target_mrr: number | null;
+  revenue_7d: number | null;
+  revenue_prev_7d: number | null;
+  war_room_score: number | null;
 };
 
 type AgentRun = {
@@ -35,18 +33,15 @@ function fmtShort(n: number | null | undefined): string {
   return "$" + n.toFixed(0);
 }
 
-function vsTargetColor(mrr: number | null, target: number | null): string {
-  if (mrr === null || target === null || target === 0) return "#555555";
-  const ratio = mrr / target;
-  if (ratio >= 1) return "#22c55e";
-  if (ratio >= 0.8) return "#f59e0b";
-  return "#ef4444";
+function growthColor(cur: number | null, prev: number | null): string {
+  if (cur === null || prev === null || prev === 0) return "#555555";
+  return cur >= prev ? "#22c55e" : "#ef4444";
 }
 
-function vsTargetLabel(mrr: number | null, target: number | null): string {
-  if (mrr === null || target === null || target === 0) return "—";
-  const pct = Math.round((mrr / target) * 100);
-  return pct + "%";
+function growthLabel(cur: number | null, prev: number | null): string {
+  if (cur === null || prev === null || prev === 0) return "—";
+  const pct = Math.round(((cur - prev) / prev) * 100);
+  return (pct >= 0 ? "+" : "") + pct + "%";
 }
 
 export default function RevenuePage() {
@@ -59,7 +54,7 @@ export default function RevenuePage() {
     todayStart.setHours(0, 0, 0, 0);
 
     const [bizRes, runsRes] = await Promise.all([
-      supabase.from("businesses").select("id,name,slug,status,revenue_today,revenue_week,revenue_month,mrr,target_mrr"),
+      supabase.from("businesses").select("id,name,slug,status,revenue_7d,revenue_prev_7d,war_room_score"),
       supabase
         .from("agent_runs")
         .select("id,agent,status,created_at,cost_usd")
@@ -90,10 +85,8 @@ export default function RevenuePage() {
     };
   }, []);
 
-  const totalToday = businesses.reduce((s, b) => s + (b.revenue_today ?? 0), 0);
-  const totalWeek = businesses.reduce((s, b) => s + (b.revenue_week ?? 0), 0);
-  const totalMrr = businesses.reduce((s, b) => s + (b.mrr ?? 0), 0);
-  const totalTargetMrr = businesses.reduce((s, b) => s + (b.target_mrr ?? 0), 0);
+  const totalWeek = businesses.reduce((s, b) => s + (b.revenue_7d ?? 0), 0);
+  const totalPrevWeek = businesses.reduce((s, b) => s + (b.revenue_prev_7d ?? 0), 0);
   const totalAgentCost = agentRuns.reduce((s, r) => s + (r.cost_usd ?? 0), 0);
 
   const mono: React.CSSProperties = { fontFamily: "var(--font-geist-mono)" };
@@ -120,10 +113,10 @@ export default function RevenuePage() {
         }}
       >
         {[
-          { label: "TODAY'S REVENUE", value: fmt(totalToday) },
           { label: "THIS WEEK", value: fmtShort(totalWeek) },
-          { label: "MRR", value: fmtShort(totalMrr) },
-          { label: "TARGET MRR", value: fmtShort(totalTargetMrr) },
+          { label: "PREV WEEK", value: fmtShort(totalPrevWeek) },
+          { label: "GROWTH", value: growthLabel(totalWeek, totalPrevWeek) },
+          { label: "AGENT COST TODAY", value: fmt(totalAgentCost) },
         ].map((stat) => (
           <div
             key={stat.label}
@@ -155,7 +148,7 @@ export default function RevenuePage() {
               <table style={{ width: "100%", borderCollapse: "collapse", fontSize: 12 }}>
                 <thead>
                   <tr style={{ background: "#111", borderBottom: "1px solid #1a1a1a" }}>
-                    {["BUSINESS", "TODAY", "WEEK", "MONTH", "MRR", "VS TARGET"].map((h) => (
+                    {["BUSINESS", "7-DAY REVENUE", "PREV 7-DAY", "GROWTH", "WAR ROOM SCORE"].map((h) => (
                       <th
                         key={h}
                         style={{
@@ -174,52 +167,27 @@ export default function RevenuePage() {
                 </thead>
                 <tbody>
                   {businesses.map((b, i) => {
-                    const col = vsTargetColor(b.mrr, b.target_mrr);
-                    const label = vsTargetLabel(b.mrr, b.target_mrr);
+                    const gCol = growthColor(b.revenue_7d, b.revenue_prev_7d);
+                    const gLabel = growthLabel(b.revenue_7d, b.revenue_prev_7d);
+                    const scoreCol = (b.war_room_score ?? 0) >= 80 ? "#22c55e" : (b.war_room_score ?? 0) >= 40 ? "#f59e0b" : "#ef4444";
                     return (
                       <tr
                         key={b.id}
-                        style={{
-                          borderBottom: "1px solid #111",
-                          background: i % 2 === 0 ? "#0a0a0a" : "#0d0d0d",
-                        }}
+                        style={{ borderBottom: "1px solid #111", background: i % 2 === 0 ? "#0a0a0a" : "#0d0d0d" }}
                       >
                         <td style={{ padding: "12px 16px", color: "#e5e5e5" }}>
                           {b.name}
-                          <span
-                            style={{
-                              marginLeft: 8,
-                              fontSize: 9,
-                              color: "#444",
-                              textTransform: "uppercase",
-                              letterSpacing: 1,
-                            }}
-                          >
+                          <span style={{ marginLeft: 8, fontSize: 9, color: "#444", textTransform: "uppercase", letterSpacing: 1 }}>
                             {b.status}
                           </span>
                         </td>
-                        <td style={{ padding: "12px 16px", textAlign: "right", color: "#f5f5f5" }}>
-                          {fmt(b.revenue_today)}
-                        </td>
-                        <td style={{ padding: "12px 16px", textAlign: "right", color: "#f5f5f5" }}>
-                          {fmt(b.revenue_week)}
-                        </td>
-                        <td style={{ padding: "12px 16px", textAlign: "right", color: "#f5f5f5" }}>
-                          {fmt(b.revenue_month)}
-                        </td>
-                        <td style={{ padding: "12px 16px", textAlign: "right", color: "#f5f5f5" }}>
-                          {fmt(b.mrr)}
+                        <td style={{ padding: "12px 16px", textAlign: "right", color: "#f5f5f5" }}>{fmt(b.revenue_7d)}</td>
+                        <td style={{ padding: "12px 16px", textAlign: "right", color: "#888" }}>{fmt(b.revenue_prev_7d)}</td>
+                        <td style={{ padding: "12px 16px", textAlign: "right" }}>
+                          <span style={{ color: gCol, fontWeight: 600 }}>{gLabel}</span>
                         </td>
                         <td style={{ padding: "12px 16px", textAlign: "right" }}>
-                          <span
-                            style={{
-                              color: col,
-                              fontWeight: 600,
-                              fontSize: 12,
-                            }}
-                          >
-                            {label}
-                          </span>
+                          <span style={{ color: scoreCol, fontWeight: 600 }}>{b.war_room_score ?? "—"}</span>
                         </td>
                       </tr>
                     );
@@ -229,32 +197,8 @@ export default function RevenuePage() {
             </div>
           </div>
 
-          <div
-            style={{
-              marginTop: 32,
-              border: "1px solid #1a1a1a",
-              padding: "20px 24px",
-              display: "flex",
-              alignItems: "center",
-              justifyContent: "space-between",
-            }}
-          >
-            <div>
-              <div style={{ fontSize: 10, color: "#555", letterSpacing: 2, textTransform: "uppercase", marginBottom: 6 }}>
-                Agent Cost — Today
-              </div>
-              <div style={{ fontSize: 24, fontWeight: 700, color: "#f59e0b" }}>
-                {fmt(totalAgentCost)}
-              </div>
-            </div>
-            <div style={{ textAlign: "right" }}>
-              <div style={{ fontSize: 10, color: "#444", letterSpacing: 1, marginBottom: 4 }}>
-                {agentRuns.length} agent runs today
-              </div>
-              <div style={{ fontSize: 10, color: "#444", letterSpacing: 1 }}>
-                avg {agentRuns.length > 0 ? fmt(totalAgentCost / agentRuns.length) : "$0.00"} / run
-              </div>
-            </div>
+          <div style={{ marginTop: 24, padding: "16px 0", color: "#444", fontSize: 11 }}>
+            {agentRuns.length} agent runs today · avg {agentRuns.length > 0 ? fmt(totalAgentCost / agentRuns.length) : "$0.00"} / run
           </div>
         </>
       )}

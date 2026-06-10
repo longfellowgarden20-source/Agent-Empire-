@@ -54,7 +54,7 @@ async def run():
         recent_stats[agent]["total"] += 1
         cost = float(row.get("cost_usd") or 0)
         recent_stats[agent]["cost"] += cost
-        if row.get("status") != "success":
+        if row.get("status") == "failed":
             recent_stats[agent]["failures"] += 1
             error = str(row.get("summary") or "unknown")[:150]
             recent_stats[agent]["errors"].append(error)

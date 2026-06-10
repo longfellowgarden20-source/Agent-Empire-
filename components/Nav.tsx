@@ -56,6 +56,12 @@ const groups = [
       { href: "/settings", label: "Settings" },
     ],
   },
+  {
+    label: "Terminal",
+    links: [
+      { href: "/terminal", label: "Terminal" },
+    ],
+  },
 ];
 
 export default function Nav() {

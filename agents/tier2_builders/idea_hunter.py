@@ -115,9 +115,9 @@ async def run():
     scored = await asyncio.gather(*[score_idea(idea) for idea in all_ideas])
     scored = [s for s in scored if s is not None]
 
-    # only keep 8+
-    winners = [s for s in scored if isinstance(s.get("score"), (int, float)) and s["score"] >= 8]
-    print(f"[IdeaHunter] {len(winners)} ideas scored 8+")
+    # only keep 6+
+    winners = [s for s in scored if isinstance(s.get("score"), (int, float)) and s["score"] >= 6]
+    print(f"[IdeaHunter] {len(winners)} ideas scored 6+")
 
     # write winners to DB
     for idea in winners:
@@ -125,7 +125,7 @@ async def run():
             "title": idea.get("title", "Untitled"),
             "description": idea.get("description", ""),
             "source": idea.get("source", "unknown"),
-            "raw_score": int(idea.get("score", 0) * 10),
+            "raw_score": int(idea.get("score", 0) * 10),  # store as 0-100
             "status": "raw",
             "market_data": {
                 "market_size": idea.get("market_size"),
@@ -145,7 +145,7 @@ async def run():
         }).execute()
 
     duration_ms = int((datetime.now(timezone.utc) - start).total_seconds() * 1000)
-    await log_agent_run("idea_hunter", "success", f"Found {len(winners)} ideas scoring 8+", duration_ms=duration_ms)
+    await log_agent_run("idea_hunter", "success", f"Found {len(winners)} ideas scoring 6+", duration_ms=duration_ms)
     print(f"[IdeaHunter] Done in {duration_ms}ms")
 
 

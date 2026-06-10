@@ -13,8 +13,8 @@ from shared.skills.llm_skills import fast_llm
 from shared.skills.scoring_skills import log_agent_run
 
 TARGET_INDUSTRIES = [
-    "e-commerce stores doing $1M-$50M revenue",
-    "SaaS companies seed to series A",
+    "site:linkedin.com/company ecommerce software startup hiring",
+    "site:linkedin.com/company B2B SaaS seed funded 2025 2026",
 ]
 
 SCORE_PROMPT = """Score this prospect as a potential client for an AI automation agency.
@@ -39,18 +39,27 @@ Respond ONLY with JSON:
 
 
 async def find_prospects_for_industry(industry: str) -> list[dict]:
-    query = f"company {industry} website contact hiring 2026"
     try:
-        results = await live_search(query, max_results=3)
+        results = await live_search(industry, max_results=3)
         prospects = []
         for r in results:
-            if r.get("url") and r.get("title"):
-                prospects.append({
-                    "company_name": r.get("title", "").split(" - ")[0].split(" | ")[0][:60],
-                    "website": r.get("url", ""),
-                    "industry": industry,
-                    "context": r.get("content", "")[:400],
-                })
+            url = r.get("url", "")
+            title = r.get("title", "")
+            # skip list/article pages — only take company-looking URLs
+            if not url or any(skip in url for skip in ["list", "guide", "blog", "article", "news", "top-", "best-"]):
+                continue
+            # extract company name from domain, not page title
+            from urllib.parse import urlparse
+            domain = urlparse(url).netloc.replace("www.", "")
+            company_name = domain.split(".")[0].replace("-", " ").title()[:60]
+            if len(company_name) < 3:
+                company_name = title.split(" - ")[0].split(" | ")[0][:60]
+            prospects.append({
+                "company_name": company_name,
+                "website": url,
+                "industry": industry,
+                "context": r.get("content", "")[:400],
+            })
         return prospects
     except Exception as e:
         print(f"[Prospector] Failed industry '{industry}': {e}")

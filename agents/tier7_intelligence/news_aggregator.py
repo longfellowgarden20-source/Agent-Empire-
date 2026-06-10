@@ -29,9 +29,18 @@ Respond ONLY with JSON:
 {{
   "relevance": <1-10>,
   "category": "<market|ai|startup|ecommerce|regulation|macro|other>",
-  "summary": "<one sentence, specific>",
-  "agent_alert": "<which agent should see this, or null>"
+  "summary": "<one sentence, specific>"
 }}"""
+
+# Fixed routing map — LLM must not invent agent names
+CATEGORY_TO_AGENT = {
+    "market": "stock_intelligence",
+    "ai": "idea_hunter",
+    "startup": "prospector",
+    "ecommerce": "product_scout",
+    "regulation": "compliance_agent",
+    "macro": "macro_watcher",
+}
 
 
 async def fetch_and_classify(source: dict) -> list[dict]:
@@ -50,15 +59,16 @@ async def fetch_and_classify(source: dict) -> list[dict]:
                 )
                 cleaned = raw.strip().removeprefix("```json").removeprefix("```").removesuffix("```").strip()
                 data = json.loads(cleaned)
+                category = data.get("category", "other")
                 if data.get("relevance", 0) >= 6:
                     classified.append({
-                        "category": data.get("category", source["topic"].lower()),
+                        "category": category,
                         "ticker_or_topic": source["topic"],
                         "summary": data.get("summary", r.get("title", "")),
                         "raw_data": {"title": r.get("title"), "url": r.get("url"), "content": r.get("content", "")[:500]},
                         "source_urls": [r.get("url", "")] if r.get("url") else [],
                         "relevance_score": data.get("relevance", 6),
-                        "agent_alert": data.get("agent_alert"),
+                        "agent_alert": CATEGORY_TO_AGENT.get(category),
                     })
             except Exception:
                 continue

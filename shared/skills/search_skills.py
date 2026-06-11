@@ -9,47 +9,56 @@ from typing import Any
 async def _llm_search_fallback(query: str, max_results: int = 5) -> list[dict]:
     """
     LLM-based fallback when Tavily is unavailable.
-    Uses Groq to synthesize structured search results from its training knowledge.
-    Results won't be real-time but are good enough to keep agents running.
+    Uses Groq to synthesize structured search results. Retries on 429.
     """
     import json as _json
+    import asyncio as _asyncio
     groq_key = os.environ.get("GROQ_API_KEY")
     if not groq_key:
         return []
-    try:
-        async with httpx.AsyncClient(timeout=20) as client:
-            res = await client.post(
-                "https://api.groq.com/openai/v1/chat/completions",
-                headers={"Authorization": f"Bearer {groq_key}"},
-                json={
-                    "model": "llama-3.3-70b-versatile",
-                    "messages": [
-                        {
-                            "role": "system",
-                            "content": (
-                                f"You are a web search results synthesizer. "
-                                f"Return exactly {max_results} realistic search results for the query, "
-                                f"formatted as a JSON array. Each result must have: "
-                                f"title (string), content (2-3 sentence summary), url (plausible URL). "
-                                f"Base results on real companies, trends, and facts you know. "
-                                f"No markdown fences. Return ONLY the JSON array."
-                            ),
-                        },
-                        {"role": "user", "content": f"Search query: {query}"},
-                    ],
-                    "max_tokens": 600,
-                    "temperature": 0.4,
-                },
-            )
-            res.raise_for_status()
-            raw = res.json()["choices"][0]["message"]["content"].strip()
-            cleaned = raw.removeprefix("```json").removeprefix("```").removesuffix("```").strip()
-            results = _json.loads(cleaned)
-            if isinstance(results, list):
-                print(f"[search_skills] LLM fallback returned {len(results)} synthetic results for: {query[:50]}")
-                return results[:max_results]
-    except Exception as e:
-        print(f"[search_skills] LLM fallback failed: {e}")
+    for attempt in range(3):
+        try:
+            async with httpx.AsyncClient(timeout=20) as client:
+                res = await client.post(
+                    "https://api.groq.com/openai/v1/chat/completions",
+                    headers={"Authorization": f"Bearer {groq_key}"},
+                    json={
+                        "model": "llama-3.3-70b-versatile",
+                        "messages": [
+                            {
+                                "role": "system",
+                                "content": (
+                                    f"You are a web search results synthesizer. "
+                                    f"Return exactly {max_results} realistic search results for the query, "
+                                    f"formatted as a JSON array. Each result must have: "
+                                    f"title (string), content (2-3 sentence summary), url (plausible URL). "
+                                    f"Base results on real companies, trends, and facts you know. "
+                                    f"No markdown fences. Return ONLY the JSON array."
+                                ),
+                            },
+                            {"role": "user", "content": f"Search query: {query}"},
+                        ],
+                        "max_tokens": 600,
+                        "temperature": 0.4,
+                    },
+                )
+                if res.status_code == 429:
+                    wait = 15 * (attempt + 1)
+                    print(f"[search_skills] Groq 429 in LLM fallback — waiting {wait}s")
+                    await _asyncio.sleep(wait)
+                    continue
+                res.raise_for_status()
+                raw = res.json()["choices"][0]["message"]["content"].strip()
+                cleaned = raw.removeprefix("```json").removeprefix("```").removesuffix("```").strip()
+                results = _json.loads(cleaned)
+                if isinstance(results, list):
+                    print(f"[search_skills] LLM fallback returned {len(results)} synthetic results for: {query[:50]}")
+                    return results[:max_results]
+        except httpx.HTTPStatusError:
+            raise
+        except Exception as e:
+            print(f"[search_skills] LLM fallback failed: {e}")
+            return []
     return []
 
 

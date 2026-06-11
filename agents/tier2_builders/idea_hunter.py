@@ -95,24 +95,37 @@ async def run():
         os.environ["SUPABASE_SERVICE_ROLE_KEY"],
     )
 
-    # search all sources concurrently
-    search_tasks = [live_search(query, max_results=5) for _, query in SEARCH_QUERIES]
-    all_results = await asyncio.gather(*search_tasks, return_exceptions=True)
+    # search in small batches to avoid hammering Groq rate limits
+    all_results = []
+    for i in range(0, len(SEARCH_QUERIES), 3):
+        batch = SEARCH_QUERIES[i:i+3]
+        batch_results = await asyncio.gather(
+            *[live_search(query, max_results=5) for _, query in batch],
+            return_exceptions=True,
+        )
+        all_results.extend(batch_results)
+        if i + 3 < len(SEARCH_QUERIES):
+            await asyncio.sleep(3)
 
-    # extract ideas from each result set
-    idea_tasks = []
+    # extract ideas sequentially to avoid rate limits
+    all_ideas = []
     for i, results in enumerate(all_results):
         if isinstance(results, Exception) or not results:
             continue
         source = SEARCH_QUERIES[i][0]
-        idea_tasks.append(extract_ideas_from_results(results, source))
+        ideas = await extract_ideas_from_results(results, source)
+        all_ideas.extend(ideas)
+        await asyncio.sleep(2)
 
-    extracted_batches = await asyncio.gather(*idea_tasks)
-    all_ideas = [idea for batch in extracted_batches for idea in batch]
     print(f"[IdeaHunter] Extracted {len(all_ideas)} raw ideas")
 
-    # score all ideas concurrently
-    scored = await asyncio.gather(*[score_idea(idea) for idea in all_ideas])
+    # score in small batches
+    scored = []
+    for i in range(0, len(all_ideas), 3):
+        batch = await asyncio.gather(*[score_idea(idea) for idea in all_ideas[i:i+3]])
+        scored.extend(batch)
+        if i + 3 < len(all_ideas):
+            await asyncio.sleep(3)
     scored = [s for s in scored if s is not None]
 
     # only keep 6+

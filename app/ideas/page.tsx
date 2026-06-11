@@ -31,6 +31,25 @@ export default function IdeasPage() {
   const [ideas, setIdeas] = useState<Idea[]>([]);
   const [filter, setFilter] = useState("all");
   const [loading, setLoading] = useState(true);
+  const [triggering, setTriggering] = useState(false);
+  const [triggerMsg, setTriggerMsg] = useState("");
+
+  async function triggerIdeaHunter() {
+    setTriggering(true);
+    setTriggerMsg("");
+    try {
+      const res = await fetch("/api/trigger-agent", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ agent: "idea_hunter" }),
+      });
+      const data = await res.json();
+      setTriggerMsg(data.ok ? "✓ Idea Hunter triggered — check back in ~30s" : `Error: ${data.error}`);
+    } catch {
+      setTriggerMsg("✗ Could not reach worker");
+    }
+    setTriggering(false);
+  }
 
   async function fetchIdeas() {
     let query = supabase.from("ideas").select("*").order("created_at", { ascending: false }).limit(50);
@@ -53,11 +72,31 @@ export default function IdeasPage() {
 
   return (
     <div style={{ padding: 24, maxWidth: 1000, display: "flex", flexDirection: "column", gap: 20 }}>
-      <div>
-        <h1 style={{ color: "#f5f5f5", fontSize: 16, fontWeight: 600, marginBottom: 4 }}>Ideas Pipeline</h1>
-        <p style={{ color: "#555", fontSize: 12, fontFamily: "monospace" }}>
-          {ideas.length} ideas · {counts["validated"] || 0} validated · {counts["live"] || 0} live
-        </p>
+      <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
+        <div>
+          <h1 style={{ color: "#f5f5f5", fontSize: 16, fontWeight: 600, marginBottom: 4 }}>Ideas Pipeline</h1>
+          <p style={{ color: "#555", fontSize: 12, fontFamily: "monospace" }}>
+            {ideas.length} ideas · {counts["validated"] || 0} validated · {counts["live"] || 0} live
+          </p>
+        </div>
+        <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 4 }}>
+          <button
+            onClick={triggerIdeaHunter}
+            disabled={triggering}
+            style={{
+              fontFamily: "monospace", fontSize: 10, letterSpacing: 1, padding: "6px 14px",
+              background: "#0a0a1a", border: "1px solid #6366f140", color: "#6366f1",
+              cursor: triggering ? "wait" : "pointer", textTransform: "uppercase", borderRadius: 2,
+            }}
+          >
+            {triggering ? "RUNNING..." : "⚡ RUN NOW"}
+          </button>
+          {triggerMsg && (
+            <span style={{ color: triggerMsg.startsWith("✓") ? "#22c55e" : "#ef4444", fontSize: 10, fontFamily: "monospace" }}>
+              {triggerMsg}
+            </span>
+          )}
+        </div>
       </div>
 
       {/* pipeline stages */}
@@ -92,7 +131,7 @@ export default function IdeasPage() {
         <div style={{ textAlign: "center", padding: "80px 0", color: "#444" }}>
           <p style={{ fontSize: 14, marginBottom: 8 }}>No ideas yet</p>
           <p style={{ fontSize: 12, marginBottom: 4 }}>Idea Hunter runs every 6 hours and searches for business opportunities</p>
-          <p style={{ fontSize: 12, color: "#333" }}>Needs Gemini + Tavily keys to activate</p>
+          <p style={{ fontSize: 12, color: "#333" }}>Hit ⚡ RUN NOW above to trigger immediately</p>
         </div>
       ) : (
         <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>

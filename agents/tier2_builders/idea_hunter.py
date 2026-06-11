@@ -85,6 +85,29 @@ async def score_idea(idea: dict) -> dict | None:
         return None
 
 
+DIRECT_IDEA_PROMPT = """You are an expert startup idea scout. Generate 8 high-quality business ideas that AI agents could build and operate autonomously.
+
+Focus on:
+- Real problems people are actively paying to solve right now
+- SaaS tools, automation services, lead gen, content, ecommerce
+- Ideas where 90%+ of the work can be done by AI agents
+- Revenue achievable within 30 days
+
+For each idea respond with a JSON array (no markdown fences):
+[
+  {
+    "title": "Short idea name",
+    "description": "2-3 sentences on the problem, solution, and customer",
+    "source": "market_research",
+    "score": <6-10>,
+    "market_size": "<small|medium|large>",
+    "reasoning": "One sentence on why this will make money",
+    "revenue_model": "How we charge (e.g. $99/mo SaaS)",
+    "kill_reason": "Biggest risk or null"
+  }
+]"""
+
+
 async def run():
     start = datetime.now(timezone.utc)
     print(f"[IdeaHunter] Starting run at {start.isoformat()}")
@@ -95,37 +118,58 @@ async def run():
         os.environ["SUPABASE_SERVICE_ROLE_KEY"],
     )
 
-    # search in small batches to avoid hammering Groq rate limits
-    all_results = []
-    for i in range(0, len(SEARCH_QUERIES), 3):
-        batch = SEARCH_QUERIES[i:i+3]
-        batch_results = await asyncio.gather(
-            *[live_search(query, max_results=5) for _, query in batch],
-            return_exceptions=True,
-        )
-        all_results.extend(batch_results)
-        if i + 3 < len(SEARCH_QUERIES):
-            await asyncio.sleep(3)
+    # Try live search first; if Tavily exhausted fall back to single direct LLM call
+    all_ideas: list[dict] = []
 
-    # extract ideas sequentially to avoid rate limits
-    all_ideas = []
-    for i, results in enumerate(all_results):
-        if isinstance(results, Exception) or not results:
-            continue
-        source = SEARCH_QUERIES[i][0]
-        ideas = await extract_ideas_from_results(results, source)
-        all_ideas.extend(ideas)
-        await asyncio.sleep(2)
+    try:
+        results = await live_search(SEARCH_QUERIES[0][1], max_results=5)
+        tavily_ok = bool(results and results[0].get("url", "").startswith("http"))
+    except Exception:
+        tavily_ok = False
 
-    print(f"[IdeaHunter] Extracted {len(all_ideas)} raw ideas")
+    if tavily_ok:
+        # Full pipeline: search → extract → score
+        all_results = []
+        for i in range(0, len(SEARCH_QUERIES), 3):
+            batch = SEARCH_QUERIES[i:i+3]
+            batch_results = await asyncio.gather(
+                *[live_search(query, max_results=5) for _, query in batch],
+                return_exceptions=True,
+            )
+            all_results.extend(batch_results)
+            if i + 3 < len(SEARCH_QUERIES):
+                await asyncio.sleep(3)
 
-    # score in small batches
-    scored = []
-    for i in range(0, len(all_ideas), 3):
-        batch = await asyncio.gather(*[score_idea(idea) for idea in all_ideas[i:i+3]])
-        scored.extend(batch)
-        if i + 3 < len(all_ideas):
-            await asyncio.sleep(3)
+        for i, results in enumerate(all_results):
+            if isinstance(results, Exception) or not results:
+                continue
+            source = SEARCH_QUERIES[i][0]
+            ideas = await extract_ideas_from_results(results, source)
+            all_ideas.extend(ideas)
+            await asyncio.sleep(2)
+
+        print(f"[IdeaHunter] Extracted {len(all_ideas)} raw ideas (live search)")
+
+        scored_raw = []
+        for i in range(0, len(all_ideas), 3):
+            batch = await asyncio.gather(*[score_idea(idea) for idea in all_ideas[i:i+3]])
+            scored_raw.extend(batch)
+            if i + 3 < len(all_ideas):
+                await asyncio.sleep(3)
+        scored = [s for s in scored_raw if s is not None]
+    else:
+        # Direct mode: one LLM call generates scored ideas without any search
+        print("[IdeaHunter] Live search unavailable — using direct LLM idea generation")
+        import json as _json
+        try:
+            raw = await fast_llm(DIRECT_IDEA_PROMPT, max_tokens=2000)
+            cleaned = raw.strip().removeprefix("```json").removeprefix("```").removesuffix("```").strip()
+            ideas = _json.loads(cleaned)
+            scored = ideas if isinstance(ideas, list) else []
+            print(f"[IdeaHunter] Direct LLM returned {len(scored)} ideas")
+        except Exception as e:
+            print(f"[IdeaHunter] Direct LLM failed: {e}")
+            scored = []
     scored = [s for s in scored if s is not None]
 
     # only keep 6+

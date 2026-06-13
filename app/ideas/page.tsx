@@ -694,9 +694,12 @@ export default function IdeasPage() {
     return () => { supabase.removeChannel(sub); };
   }, [filter]);
 
+  const [pitchError, setPitchError] = useState("");
+
   async function submitPitch() {
     if (!pitch.trim() || pitching) return;
     setPitching(true);
+    setPitchError("");
     try {
       const res = await fetch("/api/pitch-idea", {
         method: "POST",
@@ -707,8 +710,12 @@ export default function IdeasPage() {
       if (data.ok) {
         setPreview({ ...data.refined, original_pitch: pitch.trim() });
         setPitch("");
+      } else {
+        setPitchError(data.error || "Refinement failed");
       }
-    } catch {}
+    } catch (e: any) {
+      setPitchError(e.message || "Could not reach server");
+    }
     setPitching(false);
   }
 
@@ -834,6 +841,12 @@ export default function IdeasPage() {
             opacity: !pitch.trim() && !pitching ? 0.4 : 1,
           }}>{pitching ? "Refining..." : "⚡ Refine"}</button>
         </div>
+
+        {pitchError && (
+          <p style={{ fontSize: 11, fontFamily: "var(--font-geist-mono)", color: "#f87171", margin: 0 }}>
+            ✕ {pitchError}
+          </p>
+        )}
 
         {preview && (
           <PreviewCard

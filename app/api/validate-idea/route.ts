@@ -11,6 +11,10 @@ export async function POST(req: NextRequest) {
     const { idea_id, idea } = await req.json();
     if (!idea_id || !idea) return NextResponse.json({ ok: false, error: "Missing fields" }, { status: 400 });
 
+    if (!process.env.GROQ_API_KEY) {
+      return NextResponse.json({ ok: false, error: "GROQ_API_KEY not set on server" }, { status: 500 });
+    }
+
     const md = idea.market_data || {};
 
     const prompt = `You are a startup market validator. Validate this idea with fresh eyes.
@@ -41,16 +45,8 @@ Set status to "validated" only if score >= 60 and market_real and ai_buildable a
 
     const groqRes = await fetch("https://api.groq.com/openai/v1/chat/completions", {
       method: "POST",
-      headers: {
-        "Authorization": `Bearer ${process.env.GROQ_API_KEY}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        model: "llama-3.3-70b-versatile",
-        messages: [{ role: "user", content: prompt }],
-        max_tokens: 300,
-        temperature: 0.5,
-      }),
+      headers: { "Authorization": `Bearer ${process.env.GROQ_API_KEY}`, "Content-Type": "application/json" },
+      body: JSON.stringify({ model: "llama-3.3-70b-versatile", messages: [{ role: "user", content: prompt }], max_tokens: 300, temperature: 0.5 }),
     });
 
     if (!groqRes.ok) return NextResponse.json({ ok: false, error: "Groq error" }, { status: 500 });

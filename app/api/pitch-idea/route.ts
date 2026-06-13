@@ -57,6 +57,10 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ ok: true, title: data.title, id: data.id });
     }
 
+    if (!process.env.GROQ_API_KEY) {
+      return NextResponse.json({ ok: false, error: "GROQ_API_KEY not set on server — add it to Vercel environment variables" }, { status: 500 });
+    }
+
     // call Groq
     const groqRes = await fetch("https://api.groq.com/openai/v1/chat/completions", {
       method: "POST",

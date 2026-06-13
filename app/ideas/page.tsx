@@ -41,7 +41,7 @@ export default function IdeasPage() {
       const res = await fetch("/api/trigger-agent", {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ agent: "idea_hunter" }),
+        body: JSON.stringify({ agent: "scout" }),
       });
       const data = await res.json();
       setTriggerMsg(data.ok ? "✓ Idea Hunter triggered — check back in ~30s" : `Error: ${data.error}`);

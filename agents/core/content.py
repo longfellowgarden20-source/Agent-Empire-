@@ -44,7 +44,14 @@ async def run():
             pieces.append({"type": "email", "content": json.dumps(email), "status": "draft"})
 
         for piece in pieces:
-            sb.table("content_queue").insert(piece).execute()
+            sb.table("task_queue").insert({
+                "from_agent": "content",
+                "to_agent": "publish",
+                "task_type": piece["type"],
+                "payload": {"content": piece["content"]},
+                "status": "pending",
+                "priority": 5,
+            }).execute()
 
         duration_ms = int((datetime.now(timezone.utc) - start).total_seconds() * 1000)
         await log_agent_run("content", "success", f"Created {len(pieces)} content pieces", duration_ms=duration_ms)

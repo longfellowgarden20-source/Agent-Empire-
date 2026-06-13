@@ -34,6 +34,19 @@ async def is_paused() -> bool:
         return False
 
 
+async def is_agent_enabled(name: str) -> bool:
+    """Check agent_memory for agent:{name} key:enabled. Defaults to True if not set."""
+    try:
+        from supabase import create_client
+        sb = create_client(os.environ["NEXT_PUBLIC_SUPABASE_URL"], os.environ["SUPABASE_SERVICE_ROLE_KEY"])
+        res = sb.table("agent_memory").select("value").eq("agent", name).eq("key", "enabled").single().execute()
+        if res.data is None:
+            return True  # not set = enabled by default
+        return res.data.get("value") is not False
+    except Exception:
+        return True
+
+
 async def run_agent(name: str, module_path: str):
     try:
         print(f"[Scheduler] Starting {name} at {datetime.now(ET).strftime('%I:%M %p ET')}")
@@ -58,6 +71,8 @@ async def scheduler_loop():
         minute = now.minute
 
         async def maybe_run(name, interval_minutes):
+            if not await is_agent_enabled(name):
+                return
             last = last_ran.get(name)
             if last is None or (now - last).total_seconds() >= interval_minutes * 60:
                 last_ran[name] = now

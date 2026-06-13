@@ -2,7 +2,6 @@
 
 import { useEffect, useState } from "react";
 import { supabase } from "@/lib/supabase";
-import AgentNetwork from "@/components/AgentNetwork";
 
 type AgentRun = {
   id: string;
@@ -23,173 +22,193 @@ type AgentSummary = {
   totalCost: number;
 };
 
-function formatAgent(name: string) {
-  return name.replace(/_/g, " ").replace(/\b\w/g, (c) => c.toUpperCase());
+const CORE_AGENTS = ["scout", "prospector", "closer", "content", "intel", "ops", "chairman", "builder", "money", "learner"];
+
+function fmt(name: string) {
+  return name.replace(/_/g, " ").replace(/\b\w/g, c => c.toUpperCase());
+}
+
+function statusStyle(s: string) {
+  if (s === "success") return { color: "#34d399", bg: "rgba(52,211,153,0.12)", border: "rgba(52,211,153,0.25)" };
+  if (s === "failed")  return { color: "#f87171", bg: "rgba(248,113,113,0.12)", border: "rgba(248,113,113,0.25)" };
+  return { color: "#4a4a6a", bg: "rgba(74,74,106,0.12)", border: "rgba(74,74,106,0.25)" };
 }
 
 export default function AgentsClient() {
   const [agents, setAgents] = useState<AgentSummary[]>([]);
   const [recentRuns, setRecentRuns] = useState<AgentRun[]>([]);
   const [loading, setLoading] = useState(true);
-  const [view, setView] = useState<"table" | "network">("network");
+  const [triggering, setTriggering] = useState<string | null>(null);
 
   async function fetchAgents() {
     const yesterday = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString();
-
-    const { data } = await supabase
-      .from("agent_runs")
-      .select("*")
-      .gte("created_at", yesterday)
-      .order("created_at", { ascending: false });
-
+    const { data } = await supabase.from("agent_runs").select("*").gte("created_at", yesterday).order("created_at", { ascending: false });
     const runs: AgentRun[] = data || [];
-    setRecentRuns(runs.slice(0, 20));
+    setRecentRuns(runs.slice(0, 10));
 
-    // summarize by agent
     const map: Record<string, AgentRun[]> = {};
     for (const r of runs) {
       if (!map[r.agent]) map[r.agent] = [];
       map[r.agent].push(r);
     }
 
+    // include core agents even if they haven't run
+    for (const a of CORE_AGENTS) {
+      if (!map[a]) map[a] = [];
+    }
+
     const summaries: AgentSummary[] = Object.entries(map).map(([name, agentRuns]) => {
+      if (agentRuns.length === 0) return { name, lastStatus: "never" as const, lastRun: "—", tasksToday: 0, successRate: 0, totalCost: 0 };
       const latest = agentRuns[0];
-      const successes = agentRuns.filter((r) => r.status === "success").length;
+      const successes = agentRuns.filter(r => r.status === "success").length;
       return {
         name,
         lastStatus: latest.status,
-        lastRun: new Date(latest.created_at).toLocaleTimeString("en-US", {
-          hour: "2-digit", minute: "2-digit", hour12: false, timeZone: "America/New_York",
-        }),
+        lastRun: new Date(latest.created_at).toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit", hour12: false, timeZone: "America/New_York" }),
         tasksToday: agentRuns.length,
         successRate: Math.round((successes / agentRuns.length) * 100),
         totalCost: agentRuns.reduce((s, r) => s + (r.cost_usd || 0), 0),
       };
     });
 
-    summaries.sort((a, b) => b.tasksToday - a.tasksToday);
+    summaries.sort((a, b) => {
+      const order = CORE_AGENTS.indexOf(a.name) - CORE_AGENTS.indexOf(b.name);
+      return order !== 0 ? order : b.tasksToday - a.tasksToday;
+    });
     setAgents(summaries);
     setLoading(false);
   }
 
+  async function triggerAgent(name: string) {
+    setTriggering(name);
+    try {
+      await fetch("/api/trigger-agent", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ agent: name }) });
+    } catch {}
+    setTimeout(() => setTriggering(null), 2000);
+  }
+
   useEffect(() => {
     fetchAgents();
-    const sub = supabase
-      .channel("agent-runs-changes")
+    const sub = supabase.channel("agent-runs-ch")
       .on("postgres_changes", { event: "INSERT", schema: "public", table: "agent_runs" }, fetchAgents)
       .subscribe();
     return () => { supabase.removeChannel(sub); };
   }, []);
 
   const totalTasks = agents.reduce((s, a) => s + a.tasksToday, 0);
-  const totalCost = agents.reduce((s, a) => s + a.totalCost, 0);
-  const failing = agents.filter((a) => a.lastStatus === "failed");
-
-  if (view === "network") {
-    return (
-      <div style={{ width: "100%", height: "calc(100vh - 48px)", display: "flex", flexDirection: "column" }}>
-        <div style={{ display: "flex", alignItems: "center", justifyContent: "space-between", padding: "12px 20px", borderBottom: "1px solid #1f1f1f" }}>
-          <span style={{ fontFamily: "monospace", fontSize: 11, color: "#a855f7", letterSpacing: 2 }}>◈ AGENT NETWORK</span>
-          <button
-            onClick={() => setView("table")}
-            style={{ fontFamily: "monospace", fontSize: 10, color: "#555555", background: "none", border: "1px solid #1f1f1f", padding: "4px 10px", borderRadius: 2, cursor: "pointer" }}
-          >
-            TABLE VIEW
-          </button>
-        </div>
-        <div style={{ flex: 1 }}>
-          <AgentNetwork />
-        </div>
-      </div>
-    );
-  }
+  const failing = agents.filter(a => a.lastStatus === "failed");
 
   return (
-    <div className="flex flex-col gap-4 p-6" style={{ maxWidth: 1000 }}>
-      <div className="flex items-center justify-between">
-        <div className="flex flex-col gap-1">
-          <h1 className="text-lg font-semibold" style={{ color: "#f5f5f5" }}>Agents</h1>
-          <p className="text-xs" style={{ color: "#555555" }}>All agent activity in the last 24 hours</p>
-        </div>
-        <button
-          onClick={() => setView("network")}
-          style={{ fontFamily: "monospace", fontSize: 10, color: "#a855f7", background: "none", border: "1px solid #a855f740", padding: "4px 10px", borderRadius: 2, cursor: "pointer" }}
-        >
-          ◈ NETWORK VIEW
-        </button>
+    <div style={{ padding: "28px", maxWidth: 1100, display: "flex", flexDirection: "column", gap: 24 }}>
+      <div>
+        <h1 style={{ fontSize: 22, fontWeight: 600, color: "var(--text-primary)", margin: 0, letterSpacing: "-0.02em" }}>Agents</h1>
+        <p style={{ fontSize: 12, color: "var(--text-muted)", margin: "6px 0 0", fontFamily: "var(--font-geist-mono)" }}>
+          {agents.length} agents · {totalTasks} runs today
+        </p>
       </div>
 
-      {/* stat row */}
-      <div className="grid gap-3" style={{ gridTemplateColumns: "repeat(3, 1fr)" }}>
-        <StatCard label="Tasks Today" value={String(totalTasks)} />
-        <StatCard label="Agents Active" value={String(agents.length)} />
-        <StatCard label="Cost Today" value={`$${totalCost.toFixed(4)}`} valueColor="#555555" />
+      {/* Stat cards */}
+      <div style={{ display: "grid", gridTemplateColumns: "repeat(3, 1fr)", gap: 12 }}>
+        {[
+          { label: "Runs Today", value: String(totalTasks), color: "var(--text-primary)" },
+          { label: "Active Agents", value: String(agents.filter(a => a.tasksToday > 0).length), color: "#34d399" },
+          { label: "Failing", value: String(failing.length), color: failing.length > 0 ? "#f87171" : "var(--text-muted)" },
+        ].map(({ label, value, color }) => (
+          <div key={label} style={{
+            padding: "18px 20px", borderRadius: 12,
+            background: "var(--bg-panel)", border: "1px solid var(--border)", backdropFilter: "blur(12px)",
+          }}>
+            <p style={{ fontSize: 11, color: "var(--text-muted)", fontFamily: "var(--font-geist-mono)", textTransform: "uppercase", letterSpacing: "0.08em", margin: "0 0 8px" }}>{label}</p>
+            <p style={{ fontSize: 28, fontWeight: 700, color, fontFamily: "var(--font-geist-mono)", margin: 0, lineHeight: 1 }}>{value}</p>
+          </div>
+        ))}
       </div>
 
-      {failing.length > 0 && (
-        <div className="flex flex-col gap-2 p-3 rounded-sm" style={{ background: "#1a0a0a", border: "1px solid #2a1010" }}>
-          <p className="text-xs uppercase tracking-wider" style={{ color: "#ef4444", fontFamily: "var(--font-geist-mono)" }}>⚠ Failing Agents</p>
-          {failing.map((a) => (
-            <p key={a.name} className="text-xs" style={{ color: "#ef4444" }}>
-              {formatAgent(a.name)} — last run {a.lastRun}
-            </p>
-          ))}
-        </div>
-      )}
-
+      {/* Agent table */}
       {loading ? (
-        <p className="text-xs" style={{ color: "#555555" }}>Loading agent data...</p>
-      ) : agents.length === 0 ? (
-        <div className="flex flex-col items-center justify-center py-20 gap-2">
-          <p className="text-sm" style={{ color: "#555555" }}>No agents have run yet.</p>
-          <p className="text-xs" style={{ color: "#333333" }}>Run your first agent to see activity here.</p>
-        </div>
+        <div style={{ color: "var(--text-muted)", fontSize: 13, padding: "40px 0" }}>Loading...</div>
       ) : (
-        <div className="flex flex-col rounded-sm" style={{ background: "#111111", border: "1px solid #1f1f1f" }}>
-          <div
-            className="grid px-4 py-2 text-xs uppercase tracking-wider border-b"
-            style={{ gridTemplateColumns: "1fr 80px 80px 80px 60px", color: "#333333", borderColor: "#1f1f1f", fontFamily: "var(--font-geist-mono)" }}
-          >
+        <div style={{ background: "var(--bg-panel)", border: "1px solid var(--border)", borderRadius: 12, backdropFilter: "blur(12px)", overflow: "hidden" }}>
+          <div style={{
+            display: "grid", gridTemplateColumns: "1fr 80px 80px 80px 90px 80px",
+            padding: "10px 18px", borderBottom: "1px solid var(--border)",
+            fontSize: 10, fontFamily: "var(--font-geist-mono)", color: "var(--text-muted)",
+            textTransform: "uppercase", letterSpacing: "0.08em",
+          }}>
             <span>Agent</span>
-            <span className="text-right">Last Run</span>
-            <span className="text-right">Tasks</span>
-            <span className="text-right">Success</span>
-            <span className="text-right">Status</span>
+            <span style={{ textAlign: "right" }}>Last Run</span>
+            <span style={{ textAlign: "right" }}>Runs</span>
+            <span style={{ textAlign: "right" }}>Success</span>
+            <span style={{ textAlign: "center" }}>Status</span>
+            <span style={{ textAlign: "right" }}>Action</span>
           </div>
-          <div className="divide-y" style={{ borderColor: "#1f1f1f" }}>
-            {agents.map((a) => <AgentRow key={a.name} agent={a} />)}
+          {agents.map((a, i) => {
+            const s = statusStyle(a.lastStatus);
+            const isTrigger = triggering === a.name;
+            return (
+              <div key={a.name} style={{
+                display: "grid", gridTemplateColumns: "1fr 80px 80px 80px 90px 80px",
+                padding: "12px 18px", alignItems: "center",
+                borderBottom: i < agents.length - 1 ? "1px solid var(--border)" : "none",
+                transition: "background 0.1s",
+              }}>
+                <div style={{ display: "flex", alignItems: "center", gap: 10 }}>
+                  <div style={{ width: 6, height: 6, borderRadius: "50%", background: s.color, flexShrink: 0 }} />
+                  <span style={{ color: "var(--text-primary)", fontSize: 13, fontWeight: 500 }}>{fmt(a.name)}</span>
+                </div>
+                <span style={{ color: "var(--text-muted)", fontSize: 11, fontFamily: "var(--font-geist-mono)", textAlign: "right" }}>{a.lastRun}</span>
+                <span style={{ color: "var(--text-muted)", fontSize: 11, fontFamily: "var(--font-geist-mono)", textAlign: "right" }}>{a.tasksToday}</span>
+                <span style={{ fontSize: 11, fontFamily: "var(--font-geist-mono)", textAlign: "right", color: a.successRate >= 80 ? "#34d399" : a.successRate > 0 ? "#fbbf24" : "var(--text-muted)" }}>
+                  {a.tasksToday > 0 ? `${a.successRate}%` : "—"}
+                </span>
+                <div style={{ display: "flex", justifyContent: "center" }}>
+                  <span style={{
+                    fontSize: 9, fontFamily: "var(--font-geist-mono)", textTransform: "uppercase",
+                    letterSpacing: "0.08em", padding: "2px 8px", borderRadius: 20,
+                    background: s.bg, color: s.color, border: `1px solid ${s.border}`,
+                  }}>{a.lastStatus}</span>
+                </div>
+                {CORE_AGENTS.includes(a.name) ? (
+                  <div style={{ display: "flex", justifyContent: "flex-end" }}>
+                    <button onClick={() => triggerAgent(a.name)} disabled={!!triggering} style={{
+                      fontSize: 10, fontFamily: "var(--font-geist-mono)", padding: "4px 10px", borderRadius: 6,
+                      cursor: isTrigger ? "wait" : "pointer",
+                      background: isTrigger ? "rgba(52,211,153,0.1)" : "rgba(124,106,255,0.1)",
+                      color: isTrigger ? "#34d399" : "#a78bfa",
+                      border: `1px solid ${isTrigger ? "rgba(52,211,153,0.25)" : "rgba(124,106,255,0.25)"}`,
+                    }}>{isTrigger ? "..." : "▶ Run"}</button>
+                  </div>
+                ) : <span />}
+              </div>
+            );
+          })}
+        </div>
+      )}
+
+      {/* Recent runs */}
+      {recentRuns.length > 0 && (
+        <div>
+          <p style={{ fontSize: 11, fontFamily: "var(--font-geist-mono)", color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 10 }}>Recent Runs</p>
+          <div style={{ display: "flex", flexDirection: "column", gap: 6 }}>
+            {recentRuns.map(r => {
+              const s = statusStyle(r.status);
+              return (
+                <div key={r.id} style={{
+                  display: "flex", alignItems: "center", gap: 12, padding: "10px 16px",
+                  background: "var(--bg-panel)", border: "1px solid var(--border)", borderRadius: 8,
+                }}>
+                  <div style={{ width: 6, height: 6, borderRadius: "50%", background: s.color, flexShrink: 0 }} />
+                  <span style={{ color: "var(--text-primary)", fontSize: 12, fontWeight: 500, minWidth: 90 }}>{fmt(r.agent)}</span>
+                  <span style={{ color: "var(--text-muted)", fontSize: 12, flex: 1 }}>{r.summary || "—"}</span>
+                  <span style={{ color: "var(--text-muted)", fontSize: 11, fontFamily: "var(--font-geist-mono)", flexShrink: 0 }}>
+                    {new Date(r.created_at).toLocaleTimeString("en-US", { hour: "2-digit", minute: "2-digit", timeZone: "America/New_York" })}
+                  </span>
+                </div>
+              );
+            })}
           </div>
         </div>
       )}
-    </div>
-  );
-}
-
-function AgentRow({ agent: a }: { agent: AgentSummary }) {
-  const dotColor = a.lastStatus === "success" ? "#22c55e" : a.lastStatus === "failed" ? "#ef4444" : "#333333";
-
-  return (
-    <div
-      className="grid px-4 py-3 items-center"
-      style={{ gridTemplateColumns: "1fr 80px 80px 80px 60px" }}
-    >
-      <div className="flex items-center gap-2">
-        <span style={{ color: dotColor, fontSize: 8 }}>●</span>
-        <span className="text-sm" style={{ color: "#f5f5f5" }}>{formatAgent(a.name)}</span>
-      </div>
-      <span className="text-xs tabular-nums text-right" style={{ color: "#555555", fontFamily: "var(--font-geist-mono)" }}>{a.lastRun}</span>
-      <span className="text-xs tabular-nums text-right" style={{ color: "#555555", fontFamily: "var(--font-geist-mono)" }}>{a.tasksToday}</span>
-      <span className="text-xs tabular-nums text-right" style={{ color: a.successRate >= 80 ? "#22c55e" : "#f59e0b", fontFamily: "var(--font-geist-mono)" }}>{a.successRate}%</span>
-      <span className="text-xs uppercase text-right" style={{ color: dotColor, fontFamily: "var(--font-geist-mono)" }}>{a.lastStatus}</span>
-    </div>
-  );
-}
-
-function StatCard({ label, value, valueColor = "#f5f5f5" }: { label: string; value: string; valueColor?: string }) {
-  return (
-    <div className="flex flex-col gap-1 p-4 rounded-sm" style={{ background: "#111111", border: "1px solid #1f1f1f" }}>
-      <span className="text-xs" style={{ color: "#555555" }}>{label}</span>
-      <span className="text-2xl font-semibold tabular-nums" style={{ color: valueColor, fontFamily: "var(--font-geist-mono)", lineHeight: 1.2 }}>{value}</span>
     </div>
   );
 }

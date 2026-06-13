@@ -16,13 +16,13 @@ type Idea = {
   created_at: string;
 };
 
-const STATUS_COLORS: Record<string, string> = {
-  raw: "#555",
-  validating: "#f59e0b",
-  validated: "#6366f1",
-  building: "#3b82f6",
-  live: "#22c55e",
-  killed: "#ef4444",
+const STATUS_COLORS: Record<string, { bg: string; border: string; text: string }> = {
+  raw:       { bg: "rgba(74,74,106,0.15)",  border: "rgba(74,74,106,0.3)",   text: "#4a4a6a" },
+  validating:{ bg: "rgba(251,191,36,0.12)", border: "rgba(251,191,36,0.3)",  text: "#fbbf24" },
+  validated: { bg: "rgba(124,106,255,0.12)",border: "rgba(124,106,255,0.3)", text: "#a78bfa" },
+  building:  { bg: "rgba(96,165,250,0.12)", border: "rgba(96,165,250,0.3)",  text: "#60a5fa" },
+  live:      { bg: "rgba(52,211,153,0.12)", border: "rgba(52,211,153,0.3)",  text: "#34d399" },
+  killed:    { bg: "rgba(248,113,113,0.12)",border: "rgba(248,113,113,0.3)", text: "#f87171" },
 };
 
 const STATUS_ORDER = ["raw", "validating", "validated", "building", "live", "killed"];
@@ -34,7 +34,7 @@ export default function IdeasPage() {
   const [triggering, setTriggering] = useState(false);
   const [triggerMsg, setTriggerMsg] = useState("");
 
-  async function triggerIdeaHunter() {
+  async function triggerScout() {
     setTriggering(true);
     setTriggerMsg("");
     try {
@@ -44,17 +44,17 @@ export default function IdeasPage() {
         body: JSON.stringify({ agent: "scout" }),
       });
       const data = await res.json();
-      setTriggerMsg(data.ok ? "✓ Idea Hunter triggered — check back in ~30s" : `Error: ${data.error}`);
+      setTriggerMsg(data.ok ? "Scout triggered — ideas appear in ~30s" : `Error: ${data.error}`);
     } catch {
-      setTriggerMsg("✗ Could not reach worker");
+      setTriggerMsg("Could not reach worker");
     }
     setTriggering(false);
   }
 
   async function fetchIdeas() {
-    let query = supabase.from("ideas").select("*").order("created_at", { ascending: false }).limit(50);
-    if (filter !== "all") query = query.eq("status", filter);
-    const { data } = await query;
+    let q = supabase.from("ideas").select("*").order("created_at", { ascending: false }).limit(50);
+    if (filter !== "all") q = q.eq("status", filter);
+    const { data } = await q;
     setIdeas(data || []);
     setLoading(false);
   }
@@ -71,70 +71,82 @@ export default function IdeasPage() {
   ideas.forEach(i => { counts[i.status] = (counts[i.status] || 0) + 1; });
 
   return (
-    <div style={{ padding: 24, maxWidth: 1000, display: "flex", flexDirection: "column", gap: 20 }}>
+    <div style={{ padding: "28px 28px", maxWidth: 1100, display: "flex", flexDirection: "column", gap: 24 }}>
+
+      {/* Header */}
       <div style={{ display: "flex", justifyContent: "space-between", alignItems: "flex-start" }}>
         <div>
-          <h1 style={{ color: "#f5f5f5", fontSize: 16, fontWeight: 600, marginBottom: 4 }}>Ideas Pipeline</h1>
-          <p style={{ color: "#555", fontSize: 12, fontFamily: "monospace" }}>
+          <h1 style={{ fontSize: 22, fontWeight: 600, color: "var(--text-primary)", margin: 0, letterSpacing: "-0.02em" }}>
+            Ideas Pipeline
+          </h1>
+          <p style={{ fontSize: 12, color: "var(--text-muted)", margin: "6px 0 0", fontFamily: "var(--font-geist-mono)" }}>
             {ideas.length} ideas · {counts["validated"] || 0} validated · {counts["live"] || 0} live
           </p>
         </div>
-        <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 4 }}>
-          <button
-            onClick={triggerIdeaHunter}
-            disabled={triggering}
-            style={{
-              fontFamily: "monospace", fontSize: 10, letterSpacing: 1, padding: "6px 14px",
-              background: "#0a0a1a", border: "1px solid #6366f140", color: "#6366f1",
-              cursor: triggering ? "wait" : "pointer", textTransform: "uppercase", borderRadius: 2,
-            }}
-          >
-            {triggering ? "RUNNING..." : "⚡ RUN NOW"}
+        <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 6 }}>
+          <button onClick={triggerScout} disabled={triggering} style={{
+            fontFamily: "var(--font-geist-mono)", fontSize: 11, letterSpacing: "0.06em",
+            padding: "8px 18px", borderRadius: 8, cursor: triggering ? "wait" : "pointer",
+            background: "rgba(124,106,255,0.12)", border: "1px solid rgba(124,106,255,0.3)",
+            color: "#a78bfa", textTransform: "uppercase", transition: "all 0.15s",
+          }}>
+            {triggering ? "Running..." : "⚡ Run Scout"}
           </button>
           {triggerMsg && (
-            <span style={{ color: triggerMsg.startsWith("✓") ? "#22c55e" : "#ef4444", fontSize: 10, fontFamily: "monospace" }}>
+            <span style={{ fontSize: 11, fontFamily: "var(--font-geist-mono)", color: triggerMsg.startsWith("Scout") ? "#34d399" : "#f87171" }}>
               {triggerMsg}
             </span>
           )}
         </div>
       </div>
 
-      {/* pipeline stages */}
-      <div style={{ display: "flex", gap: 0, overflowX: "auto" }}>
-        {STATUS_ORDER.map((s, i) => (
-          <div key={s} style={{ display: "flex", alignItems: "center" }}>
-            <button onClick={() => setFilter(s === filter ? "all" : s)} style={{
-              fontFamily: "monospace", fontSize: 10, padding: "6px 14px",
-              background: filter === s ? STATUS_COLORS[s] + "20" : "transparent",
-              color: filter === s ? STATUS_COLORS[s] : "#333",
-              border: `1px solid ${filter === s ? STATUS_COLORS[s] + "40" : "#1a1a1a"}`,
-              cursor: "pointer", textTransform: "uppercase", letterSpacing: 1, whiteSpace: "nowrap",
+      {/* Pipeline stages */}
+      <div style={{ display: "flex", gap: 6, flexWrap: "wrap" }}>
+        {STATUS_ORDER.map((s) => {
+          const c = STATUS_COLORS[s];
+          const active = filter === s;
+          return (
+            <button key={s} onClick={() => setFilter(active ? "all" : s)} style={{
+              fontFamily: "var(--font-geist-mono)", fontSize: 10, letterSpacing: "0.08em",
+              padding: "5px 12px", borderRadius: 20, cursor: "pointer",
+              textTransform: "uppercase",
+              background: active ? c.bg : "transparent",
+              color: active ? c.text : "var(--text-muted)",
+              border: `1px solid ${active ? c.border : "var(--border)"}`,
+              transition: "all 0.15s",
             }}>
               {s} {counts[s] ? `(${counts[s]})` : "(0)"}
             </button>
-            {i < STATUS_ORDER.length - 1 && (
-              <span style={{ color: "#222", fontSize: 12, padding: "0 2px" }}>→</span>
-            )}
-          </div>
-        ))}
+          );
+        })}
         <button onClick={() => setFilter("all")} style={{
-          marginLeft: 12, fontFamily: "monospace", fontSize: 10, padding: "6px 14px",
-          background: filter === "all" ? "#1f1f1f" : "transparent",
-          color: filter === "all" ? "#f5f5f5" : "#333",
-          border: "1px solid #1a1a1a", cursor: "pointer",
-        }}>ALL</button>
+          fontFamily: "var(--font-geist-mono)", fontSize: 10, letterSpacing: "0.08em",
+          padding: "5px 12px", borderRadius: 20, cursor: "pointer",
+          textTransform: "uppercase",
+          background: filter === "all" ? "rgba(255,255,255,0.08)" : "transparent",
+          color: filter === "all" ? "var(--text-primary)" : "var(--text-muted)",
+          border: `1px solid ${filter === "all" ? "var(--border-bright)" : "var(--border)"}`,
+          transition: "all 0.15s",
+        }}>
+          All ({ideas.length})
+        </button>
       </div>
 
+      {/* Ideas list */}
       {loading ? (
-        <p style={{ color: "#555", fontSize: 12 }}>Loading ideas...</p>
+        <div style={{ color: "var(--text-muted)", fontSize: 13, padding: "40px 0" }}>Loading...</div>
       ) : ideas.length === 0 ? (
-        <div style={{ textAlign: "center", padding: "80px 0", color: "#444" }}>
-          <p style={{ fontSize: 14, marginBottom: 8 }}>No ideas yet</p>
-          <p style={{ fontSize: 12, marginBottom: 4 }}>Idea Hunter runs every 6 hours and searches for business opportunities</p>
-          <p style={{ fontSize: 12, color: "#333" }}>Hit ⚡ RUN NOW above to trigger immediately</p>
+        <div style={{
+          textAlign: "center", padding: "80px 40px",
+          background: "var(--bg-panel)", border: "1px solid var(--border)",
+          borderRadius: 16, backdropFilter: "blur(12px)",
+        }}>
+          <div style={{ fontSize: 32, marginBottom: 12 }}>💡</div>
+          <p style={{ fontSize: 15, color: "var(--text-primary)", marginBottom: 8, fontWeight: 500 }}>No ideas yet</p>
+          <p style={{ fontSize: 13, color: "var(--text-muted)" }}>Hit ⚡ Run Scout above to generate business ideas</p>
         </div>
       ) : (
-        <div style={{ display: "flex", flexDirection: "column", gap: 8 }}>
+        <div style={{ display: "flex", flexDirection: "column", gap: 10 }}>
           {ideas.map(idea => <IdeaCard key={idea.id} idea={idea} />)}
         </div>
       )}
@@ -144,62 +156,97 @@ export default function IdeasPage() {
 
 function IdeaCard({ idea }: { idea: Idea }) {
   const [expanded, setExpanded] = useState(false);
-  const statusColor = STATUS_COLORS[idea.status] || "#555";
+  const c = STATUS_COLORS[idea.status] || STATUS_COLORS.raw;
   const score = idea.validated_score || idea.raw_score;
-  const scoreColor = score >= 80 ? "#22c55e" : score >= 60 ? "#f59e0b" : "#555";
+  const scoreColor = score >= 80 ? "#34d399" : score >= 60 ? "#fbbf24" : "var(--text-muted)";
   const date = new Date(idea.created_at).toLocaleDateString("en-US", { month: "short", day: "numeric" });
+  const md = idea.market_data || {};
 
   return (
-    <div style={{ background: "#0d0d0d", border: "1px solid #1a1a1a", borderRadius: 2 }}>
-      <div onClick={() => setExpanded(!expanded)} style={{ padding: "14px 16px", cursor: "pointer", display: "flex", gap: 12, alignItems: "flex-start" }}>
-        {/* score */}
-        <div style={{ textAlign: "center", minWidth: 40 }}>
-          <div style={{ color: scoreColor, fontSize: 20, fontFamily: "monospace", fontWeight: 700, lineHeight: 1 }}>
+    <div className="glow-hover" style={{
+      background: "var(--bg-panel)", border: "1px solid var(--border)",
+      borderRadius: 12, backdropFilter: "blur(12px)",
+      transition: "all 0.15s", overflow: "hidden",
+    }}>
+      <div onClick={() => setExpanded(!expanded)} style={{
+        padding: "16px 20px", cursor: "pointer",
+        display: "flex", gap: 16, alignItems: "flex-start",
+      }}>
+        {/* Score */}
+        <div style={{
+          minWidth: 48, height: 48, borderRadius: 10,
+          background: `${scoreColor}15`, border: `1px solid ${scoreColor}30`,
+          display: "flex", flexDirection: "column", alignItems: "center", justifyContent: "center",
+        }}>
+          <div style={{ color: scoreColor, fontSize: 18, fontFamily: "var(--font-geist-mono)", fontWeight: 700, lineHeight: 1 }}>
             {score || "?"}
           </div>
-          <div style={{ color: "#333", fontSize: 9, fontFamily: "monospace" }}>SCORE</div>
+          <div style={{ color: "var(--text-muted)", fontSize: 8, fontFamily: "var(--font-geist-mono)", letterSpacing: 1 }}>SCR</div>
         </div>
 
         <div style={{ flex: 1, minWidth: 0 }}>
-          <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 4 }}>
-            <span style={{ color: "#f5f5f5", fontSize: 14, fontWeight: 600 }}>{idea.title}</span>
+          <div style={{ display: "flex", alignItems: "center", gap: 8, marginBottom: 6, flexWrap: "wrap" }}>
+            <span style={{ color: "var(--text-primary)", fontSize: 14, fontWeight: 600 }}>{idea.title}</span>
             <span style={{
-              color: statusColor, fontSize: 9, fontFamily: "monospace", textTransform: "uppercase",
-              background: statusColor + "15", padding: "2px 6px", borderRadius: 2, letterSpacing: 1,
+              fontSize: 9, fontFamily: "var(--font-geist-mono)", textTransform: "uppercase",
+              letterSpacing: "0.08em", padding: "2px 8px", borderRadius: 20,
+              background: c.bg, color: c.text, border: `1px solid ${c.border}`,
             }}>{idea.status}</span>
             {idea.source && (
-              <span style={{ color: "#333", fontSize: 9, fontFamily: "monospace" }}>via {idea.source}</span>
+              <span style={{ color: "var(--text-muted)", fontSize: 10, fontFamily: "var(--font-geist-mono)" }}>
+                via {idea.source}
+              </span>
             )}
           </div>
           {idea.description && (
-            <p style={{ color: "#888", fontSize: 12, lineHeight: 1.5, margin: 0 }}>{idea.description}</p>
+            <p style={{ color: "var(--text-muted)", fontSize: 13, lineHeight: 1.6, margin: 0 }}>{idea.description}</p>
+          )}
+          {md.revenue_model && (
+            <p style={{ color: "#a78bfa", fontSize: 11, fontFamily: "var(--font-geist-mono)", margin: "6px 0 0" }}>
+              💰 {md.revenue_model}
+            </p>
           )}
         </div>
 
-        <span style={{ color: "#333", fontSize: 10, fontFamily: "monospace", shrink: 0 } as any}>{date}</span>
+        <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 4, flexShrink: 0 }}>
+          <span style={{ color: "var(--text-muted)", fontSize: 11, fontFamily: "var(--font-geist-mono)" }}>{date}</span>
+          <span style={{ color: "var(--text-muted)", fontSize: 14 }}>{expanded ? "▲" : "▼"}</span>
+        </div>
       </div>
 
       {expanded && (
-        <div style={{ padding: "0 16px 16px", borderTop: "1px solid #111", marginTop: 0 }}>
-          {idea.market_data && Object.keys(idea.market_data).length > 0 && (
-            <div style={{ marginTop: 12 }}>
-              <p style={{ color: "#444", fontSize: 10, fontFamily: "monospace", textTransform: "uppercase", marginBottom: 6 }}>Market Data</p>
-              {idea.market_data.reasoning && (
-                <p style={{ color: "#888", fontSize: 12, lineHeight: 1.5 }}>{idea.market_data.reasoning}</p>
-              )}
-              {idea.market_data.competitors && (
-                <p style={{ color: "#666", fontSize: 11, marginTop: 4 }}>Competitors: {idea.market_data.competitors}</p>
-              )}
+        <div style={{ padding: "0 20px 20px", borderTop: "1px solid var(--border)" }}>
+          {md.reasoning && (
+            <div style={{ marginTop: 14 }}>
+              <p style={{ fontSize: 10, fontFamily: "var(--font-geist-mono)", color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.08em", marginBottom: 6 }}>Why it works</p>
+              <p style={{ fontSize: 13, color: "var(--text-primary)", lineHeight: 1.6 }}>{md.reasoning}</p>
+            </div>
+          )}
+          {md.market_size && (
+            <div style={{ marginTop: 12, display: "flex", gap: 8 }}>
+              <span style={{ fontSize: 10, fontFamily: "var(--font-geist-mono)", color: "var(--text-muted)", textTransform: "uppercase" }}>Market:</span>
+              <span style={{ fontSize: 11, color: "#60a5fa", fontFamily: "var(--font-geist-mono)" }}>{md.market_size}</span>
             </div>
           )}
           {idea.spec && Object.keys(idea.spec).length > 0 && (
-            <div style={{ marginTop: 12, padding: 12, background: "#080810", border: "1px solid #1a1a2a", borderRadius: 2 }}>
-              <p style={{ color: "#6366f1", fontSize: 10, fontFamily: "monospace", marginBottom: 8 }}>ARCHITECT SPEC</p>
+            <div style={{
+              marginTop: 14, padding: 14,
+              background: "rgba(124,106,255,0.06)", border: "1px solid rgba(124,106,255,0.15)",
+              borderRadius: 8,
+            }}>
+              <p style={{ fontSize: 10, fontFamily: "var(--font-geist-mono)", color: "#a78bfa", marginBottom: 8, textTransform: "uppercase", letterSpacing: "0.08em" }}>Architect Spec</p>
               {idea.spec.revenue_model && (
-                <p style={{ color: "#ccc", fontSize: 12, marginBottom: 4 }}>💰 {idea.spec.revenue_model}</p>
+                <p style={{ color: "var(--text-primary)", fontSize: 13, marginBottom: 4 }}>💰 {idea.spec.revenue_model}</p>
               )}
-              {idea.spec.agent_roster && (
-                <p style={{ color: "#888", fontSize: 12 }}>🤖 {Array.isArray(idea.spec.agent_roster) ? idea.spec.agent_roster.join(", ") : idea.spec.agent_roster}</p>
+              {idea.spec.estimated_build_days && (
+                <p style={{ color: "var(--text-muted)", fontSize: 12 }}>⏱ {idea.spec.estimated_build_days} day build</p>
+              )}
+              {idea.spec.mvp_features && (
+                <div style={{ marginTop: 8 }}>
+                  {(idea.spec.mvp_features as string[]).map((f, i) => (
+                    <p key={i} style={{ color: "var(--text-muted)", fontSize: 12, marginBottom: 2 }}>• {f}</p>
+                  ))}
+                </div>
               )}
             </div>
           )}

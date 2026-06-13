@@ -3,32 +3,22 @@ import { Geist, Geist_Mono } from "next/font/google";
 import "./globals.css";
 import Nav from "@/components/Nav";
 
-const geistSans = Geist({
-  variable: "--font-geist-sans",
-  subsets: ["latin"],
-});
-
-const geistMono = Geist_Mono({
-  variable: "--font-geist-mono",
-  subsets: ["latin"],
-});
+const geistSans = Geist({ variable: "--font-geist-sans", subsets: ["latin"] });
+const geistMono = Geist_Mono({ variable: "--font-geist-mono", subsets: ["latin"] });
 
 export const metadata: Metadata = {
   title: "War Room — Agent Empire",
   description: "Autonomous AI holding company dashboard",
 };
 
-export default function RootLayout({
-  children,
-}: Readonly<{ children: React.ReactNode }>) {
+export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
-    <html
-      lang="en"
-      className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}
-    >
-      <body className="h-full flex flex-col bg-[#0a0a0a] text-[#f5f5f5]" style={{ overflow: "hidden" }}>
+    <html lang="en" className={`${geistSans.variable} ${geistMono.variable} h-full antialiased`}>
+      <body className="h-full flex flex-col" style={{ background: "var(--bg-void)", color: "var(--text-primary)", overflow: "hidden" }}>
         <Nav />
-        <main style={{ flex: 1, overflowY: "auto", overflowX: "hidden", minWidth: 0 }}>{children}</main>
+        <main className="grid-bg" style={{ flex: 1, overflowY: "auto", overflowX: "hidden", minWidth: 0 }}>
+          {children}
+        </main>
       </body>
     </html>
   );

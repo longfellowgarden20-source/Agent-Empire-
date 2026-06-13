@@ -156,11 +156,34 @@ export default function IdeasPage() {
 
 function IdeaCard({ idea }: { idea: Idea }) {
   const [expanded, setExpanded] = useState(false);
+  const [building, setBuilding] = useState(idea.status === "building" || idea.status === "validated");
+  const [buildMsg, setBuildMsg] = useState("");
   const c = STATUS_COLORS[idea.status] || STATUS_COLORS.raw;
   const score = idea.validated_score || idea.raw_score;
   const scoreColor = score >= 80 ? "#34d399" : score >= 60 ? "#fbbf24" : "var(--text-muted)";
   const date = new Date(idea.created_at).toLocaleDateString("en-US", { month: "short", day: "numeric" });
   const md = idea.market_data || {};
+
+  async function queueForBuilder(e: React.MouseEvent) {
+    e.stopPropagation();
+    if (building) return;
+    setBuilding(true);
+    setBuildMsg("");
+    const { error: statusErr } = await supabase
+      .from("ideas")
+      .update({ status: "validated" })
+      .eq("id", idea.id);
+    if (statusErr) { setBuildMsg("Failed to update status"); setBuilding(false); return; }
+    await supabase.from("task_queue").insert({
+      to_agent: "builder",
+      from_agent: "chairman",
+      task: "build_idea",
+      payload: { idea_id: idea.id, title: idea.title },
+      priority: 9,
+      status: "pending",
+    });
+    setBuildMsg("Queued for Builder");
+  }
 
   return (
     <div className="glow-hover" style={{
@@ -208,8 +231,23 @@ function IdeaCard({ idea }: { idea: Idea }) {
           )}
         </div>
 
-        <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 4, flexShrink: 0 }}>
+        <div style={{ display: "flex", flexDirection: "column", alignItems: "flex-end", gap: 6, flexShrink: 0 }}>
           <span style={{ color: "var(--text-muted)", fontSize: 11, fontFamily: "var(--font-geist-mono)" }}>{date}</span>
+          <button
+            onClick={queueForBuilder}
+            disabled={building}
+            style={{
+              fontFamily: "var(--font-geist-mono)", fontSize: 10, letterSpacing: "0.06em",
+              padding: "4px 12px", borderRadius: 6, cursor: building ? "default" : "pointer",
+              textTransform: "uppercase", transition: "all 0.15s",
+              background: building ? "rgba(52,211,153,0.1)" : "rgba(96,165,250,0.1)",
+              color: building ? "#34d399" : "#60a5fa",
+              border: `1px solid ${building ? "rgba(52,211,153,0.25)" : "rgba(96,165,250,0.25)"}`,
+              whiteSpace: "nowrap",
+            }}
+          >
+            {building ? (buildMsg || "✓ Queued") : "⚙ Build This"}
+          </button>
           <span style={{ color: "var(--text-muted)", fontSize: 14 }}>{expanded ? "▲" : "▼"}</span>
         </div>
       </div>

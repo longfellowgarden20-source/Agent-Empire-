@@ -62,6 +62,7 @@ CREATE TABLE IF NOT EXISTS businesses (
     agent_count int DEFAULT 0,
     url text,
     railway_service_url text,
+    manifest jsonb,   -- full spec: agent_instructions, tech_stack, db_tables, etc.
     created_at timestamptz DEFAULT now(),
     last_scored_at timestamptz
 );

@@ -1,25 +1,51 @@
-"""Content — writes tweets, LinkedIn posts, and email newsletters. One Groq call."""
+"""Content — writes tweets, LinkedIn posts, and newsletters for active companies."""
 import asyncio, os, json
 from datetime import datetime, timezone
 from shared.skills.llm_skills import groq_llm
 from shared.skills.scoring_skills import log_agent_run
 
-PROMPT = """You run content for an AI automation company. Generate a week of content in one shot.
+COMPANY_PROMPT = """You run content marketing for a SaaS product. Generate a week of content.
+
+Product: {product_name}
+Tagline: {tagline}
+Target customer: {target_customer}
+Problem solved: {problem}
+Pricing: {pricing}
+Content angle: {content_instructions}
 
 Create:
-- 3 tweets (under 280 chars each, hooks about AI automation wins)
+- 3 tweets (under 280 chars each, specific results/numbers, hooks that make the target customer stop scrolling)
+- 2 LinkedIn posts (150-200 words, show the pain → solution → outcome arc, no cringe corporate speak)
+- 1 email newsletter intro (subject line + 150 word opener that reads like a human wrote it)
+
+Return ONLY valid JSON (no markdown):
+{{
+  "tweets": ["...", "...", "..."],
+  "linkedin": ["...", "..."],
+  "email": {{
+    "subject": "...",
+    "body": "..."
+  }}
+}}"""
+
+GENERIC_PROMPT = """You run content for an AI automation agency. Generate a week of content.
+
+The agency helps small businesses automate repetitive tasks using AI agents.
+
+Create:
+- 3 tweets (under 280 chars each, hooks about AI automation wins, specific numbers)
 - 2 LinkedIn posts (150-200 words, thought leadership, no cringe)
 - 1 email newsletter intro (200 words, subject line + body opener)
 
 Return ONLY valid JSON (no markdown):
-{
+{{
   "tweets": ["...", "...", "..."],
   "linkedin": ["...", "..."],
-  "email": {
+  "email": {{
     "subject": "...",
     "body": "..."
-  }
-}"""
+  }}
+}}"""
 
 
 async def run():
@@ -30,32 +56,85 @@ async def run():
     sb = create_client(os.environ["NEXT_PUBLIC_SUPABASE_URL"], os.environ["SUPABASE_SERVICE_ROLE_KEY"])
 
     try:
-        raw = await groq_llm(PROMPT, max_tokens=1500)
-        cleaned = raw.strip().removeprefix("```json").removeprefix("```").removesuffix("```").strip()
-        data = json.loads(cleaned)
+        # check for active companies with content instructions
+        companies = sb.table("businesses").select("*").in_("status", ["building", "active"]).limit(5).execute()
+        active = [c for c in (companies.data or []) if c.get("manifest", {}).get("agent_instructions", {}).get("content")]
 
-        pieces = []
-        for tweet in data.get("tweets", []):
-            pieces.append({"type": "tweet", "content": tweet, "status": "draft"})
-        for post in data.get("linkedin", []):
-            pieces.append({"type": "linkedin", "content": post, "status": "draft"})
-        email = data.get("email", {})
-        if email:
-            pieces.append({"type": "email", "content": json.dumps(email), "status": "draft"})
+        total_pieces = 0
 
-        for piece in pieces:
-            sb.table("task_queue").insert({
-                "from_agent": "content",
-                "to_agent": "publish",
-                "task_type": piece["type"],
-                "payload": {"content": piece["content"]},
-                "status": "pending",
-                "priority": 5,
-            }).execute()
+        if active:
+            for company in active[:2]:  # max 2 per run
+                manifest = company.get("manifest", {})
+                instructions = manifest.get("agent_instructions", {})
+                prompt = COMPANY_PROMPT.format(
+                    product_name=company.get("name", ""),
+                    tagline=manifest.get("tagline", ""),
+                    target_customer=manifest.get("target_customer", ""),
+                    problem=manifest.get("problem", ""),
+                    pricing=manifest.get("pricing", ""),
+                    content_instructions=instructions.get("content", ""),
+                )
+                raw = await groq_llm(prompt, max_tokens=1500)
+                cleaned = raw.strip().removeprefix("```json").removeprefix("```").removesuffix("```").strip()
+                data = json.loads(cleaned)
+
+                pieces = []
+                for tweet in data.get("tweets", []):
+                    pieces.append({"type": "tweet", "content": tweet})
+                for post in data.get("linkedin", []):
+                    pieces.append({"type": "linkedin", "content": post})
+                email = data.get("email", {})
+                if email:
+                    pieces.append({"type": "email", "content": json.dumps(email)})
+
+                for piece in pieces:
+                    sb.table("task_queue").insert({
+                        "from_agent": "content",
+                        "to_agent": "publish",
+                        "task_type": piece["type"],
+                        "payload": {
+                            "content": piece["content"],
+                            "for_company": company.get("name", ""),
+                            "for_company_id": company.get("id", ""),
+                        },
+                        "status": "pending",
+                        "priority": 5,
+                    }).execute()
+
+                total_pieces += len(pieces)
+                print(f"[Content] {len(pieces)} pieces for {company['name']}")
+                await asyncio.sleep(3)
+
+        else:
+            # no companies yet — generic agency content
+            raw = await groq_llm(GENERIC_PROMPT, max_tokens=1500)
+            cleaned = raw.strip().removeprefix("```json").removeprefix("```").removesuffix("```").strip()
+            data = json.loads(cleaned)
+
+            pieces = []
+            for tweet in data.get("tweets", []):
+                pieces.append({"type": "tweet", "content": tweet})
+            for post in data.get("linkedin", []):
+                pieces.append({"type": "linkedin", "content": post})
+            email = data.get("email", {})
+            if email:
+                pieces.append({"type": "email", "content": json.dumps(email)})
+
+            for piece in pieces:
+                sb.table("task_queue").insert({
+                    "from_agent": "content",
+                    "to_agent": "publish",
+                    "task_type": piece["type"],
+                    "payload": {"content": piece["content"], "for_company": "Agent Empire Agency"},
+                    "status": "pending",
+                    "priority": 5,
+                }).execute()
+
+            total_pieces = len(pieces)
 
         duration_ms = int((datetime.now(timezone.utc) - start).total_seconds() * 1000)
-        await log_agent_run("content", "success", f"Created {len(pieces)} content pieces", duration_ms=duration_ms)
-        print(f"[Content] Done — {len(pieces)} pieces saved")
+        await log_agent_run("content", "success", f"Created {total_pieces} content pieces", duration_ms=duration_ms)
+        print(f"[Content] Done — {total_pieces} pieces")
 
     except Exception as e:
         print(f"[Content] Failed: {e}")

@@ -10,13 +10,16 @@ Company: {company}
 Industry: {industry}
 Pain points: {pain_points}
 Decision maker: {decision_maker}
+Product we're selling: {product}
+How to pitch it: {pitch_angle}
 
 Rules:
 - Subject line under 50 chars
 - Body under 100 words
-- One specific pain point, one specific outcome we deliver
-- Clear CTA (15-min call)
-- No fluff, no buzzwords
+- Lead with their specific pain point
+- One concrete outcome our product delivers
+- Clear CTA (15-min call or free trial)
+- No fluff, no buzzwords, no "I hope this finds you well"
 
 Return ONLY valid JSON (no markdown):
 {{
@@ -54,11 +57,15 @@ async def run():
             p = prospect.data
             intel = p.get("intel", {})
 
+            pitch_angle = task["payload"].get("pitch_angle", "")
+            for_company = intel.get("for_company", "our AI automation service")
             raw = await groq_llm(EMAIL_PROMPT.format(
                 company=p.get("company_name", ""),
                 industry=p.get("industry", ""),
                 pain_points=", ".join(intel.get("pain_points", [])),
                 decision_maker=intel.get("decision_maker_title", "Owner"),
+                product=for_company,
+                pitch_angle=pitch_angle or "Focus on time saved and ROI. Offer a free trial.",
             ), max_tokens=400)
 
             cleaned = raw.strip().removeprefix("```json").removeprefix("```").removesuffix("```").strip()

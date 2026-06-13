@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
+import { groqCall } from "@/lib/groq";
 
 const sb = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -57,32 +58,7 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ ok: true, title: data.title, id: data.id });
     }
 
-    if (!process.env.GROQ_API_KEY) {
-      return NextResponse.json({ ok: false, error: "GROQ_API_KEY not set on server — add it to Vercel environment variables" }, { status: 500 });
-    }
-
-    // call Groq
-    const groqRes = await fetch("https://api.groq.com/openai/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        "Authorization": `Bearer ${process.env.GROQ_API_KEY}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        model: "llama-3.3-70b-versatile",
-        messages: [{ role: "user", content: REFINE_PROMPT(pitch) }],
-        max_tokens: 600,
-        temperature: 0.7,
-      }),
-    });
-
-    if (!groqRes.ok) {
-      const err = await groqRes.text();
-      return NextResponse.json({ ok: false, error: `Groq error: ${err}` }, { status: 500 });
-    }
-
-    const groqData = await groqRes.json();
-    const raw = groqData.choices?.[0]?.message?.content ?? "";
+    const raw = await groqCall(REFINE_PROMPT(pitch), 600, 0.7);
     const cleaned = raw.trim().replace(/^```json\n?/, "").replace(/^```\n?/, "").replace(/```$/, "").trim();
     const refined = JSON.parse(cleaned);
 

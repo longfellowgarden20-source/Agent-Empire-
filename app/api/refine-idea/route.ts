@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from "next/server";
 import { createClient } from "@supabase/supabase-js";
+import { groqCall } from "@/lib/groq";
 
 const sb = createClient(
   process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -41,30 +42,7 @@ Return ONLY valid JSON (no markdown):
 
 Only include "updated" if something genuinely changed. If nothing changed, return just { "reply": "..." }`;
 
-    if (!process.env.GROQ_API_KEY) {
-      return NextResponse.json({ ok: false, error: "GROQ_API_KEY not set on server" }, { status: 500 });
-    }
-
-    const groqRes = await fetch("https://api.groq.com/openai/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        "Authorization": `Bearer ${process.env.GROQ_API_KEY}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        model: "llama-3.3-70b-versatile",
-        messages: [{ role: "user", content: prompt }],
-        max_tokens: 400,
-        temperature: 0.8,
-      }),
-    });
-
-    if (!groqRes.ok) {
-      return NextResponse.json({ ok: false, error: "Groq error" }, { status: 500 });
-    }
-
-    const groqData = await groqRes.json();
-    const raw = groqData.choices?.[0]?.message?.content ?? "";
+    const raw = await groqCall(prompt, 400, 0.8);
     const cleaned = raw.trim().replace(/^```json\n?/, "").replace(/^```\n?/, "").replace(/```$/, "").trim();
     const result = JSON.parse(cleaned);
 

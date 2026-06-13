@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from "next/server";
+import { groqCall } from "@/lib/groq";
 
 const ANALYZE_PROMPT = (query: string, searchResults: string) => `You are a ruthless startup analyst. A founder wants to clone a competitor.
 
@@ -81,27 +82,7 @@ export async function POST(req: NextRequest) {
       searchResults = `No live search results available. Use your training knowledge about ${query} to answer as accurately as possible. Mark any uncertain fields with "(estimated)".`;
     }
 
-    const groqRes = await fetch("https://api.groq.com/openai/v1/chat/completions", {
-      method: "POST",
-      headers: {
-        "Authorization": `Bearer ${process.env.GROQ_API_KEY}`,
-        "Content-Type": "application/json",
-      },
-      body: JSON.stringify({
-        model: "llama-3.3-70b-versatile",
-        messages: [{ role: "user", content: ANALYZE_PROMPT(query, searchResults) }],
-        max_tokens: 1500,
-        temperature: 0.4,
-      }),
-    });
-
-    if (!groqRes.ok) {
-      const err = await groqRes.text();
-      return NextResponse.json({ ok: false, error: `Groq error: ${err}` }, { status: 500 });
-    }
-
-    const groqData = await groqRes.json();
-    const raw = groqData.choices?.[0]?.message?.content ?? "";
+    const raw = await groqCall(ANALYZE_PROMPT(query, searchResults), 1500, 0.4);
     const cleaned = raw.trim().replace(/^```json\n?/, "").replace(/^```\n?/, "").replace(/```$/, "").trim();
     const result = JSON.parse(cleaned);
 

@@ -14,6 +14,45 @@ def _groq_keys() -> list[str]:
         os.environ.get("GROQ_API_KEY_3"),
     ] if k]
 
+async def groq_llm(prompt: str, system: str = "", max_tokens: int = 1000) -> str:
+    """Primary LLM for all core agents. Uses httpx directly to avoid SDK quirks."""
+    import random
+    keys = _groq_keys()
+    if not keys:
+        raise RuntimeError("No GROQ_API_KEY configured")
+    messages = []
+    if system:
+        messages.append({"role": "system", "content": system})
+    messages.append({"role": "user", "content": prompt})
+    for attempt in range(4):
+        key = random.choice(keys)
+        try:
+            async with httpx.AsyncClient(timeout=30) as client:
+                res = await client.post(
+                    "https://api.groq.com/openai/v1/chat/completions",
+                    headers={"Authorization": f"Bearer {key}"},
+                    json={
+                        "model": "llama-3.3-70b-versatile" if attempt < 2 else "llama-3.1-8b-instant",
+                        "messages": messages,
+                        "max_tokens": max_tokens,
+                        "temperature": 0.3,
+                    },
+                )
+                if res.status_code == 429:
+                    wait = 10 * (attempt + 1)
+                    print(f"[llm_skills] Groq 429 — waiting {wait}s (attempt {attempt+1}/4)")
+                    await asyncio.sleep(wait)
+                    continue
+                res.raise_for_status()
+                return res.json()["choices"][0]["message"]["content"] or ""
+        except httpx.HTTPStatusError:
+            raise
+        except Exception as e:
+            if attempt == 3:
+                raise
+            await asyncio.sleep(5)
+    raise RuntimeError("Groq rate limit exceeded after 4 attempts")
+
 async def fast_llm(prompt: str, system: str = "", max_tokens: int = 500) -> str:
     """Groq llama-3.3-70b — speed priority. Retries with backoff on rate limit."""
     import random

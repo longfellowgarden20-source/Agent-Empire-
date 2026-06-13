@@ -346,6 +346,13 @@ function IdeaCard({
   const canValidate = ["raw", "validating"].includes(idea.status);
   const canKill = !["killed", "live"].includes(idea.status);
 
+  function openCompetitor(e: React.MouseEvent) {
+    e.stopPropagation();
+    const q = encodeURIComponent(idea.title);
+    const ideaParam = encodeURIComponent(idea.title);
+    window.open(`/competitor?q=${q}&idea=${ideaParam}&idea_id=${idea.id}&auto=1`, "_blank");
+  }
+
   return (
     <div style={{
       background: selected ? "rgba(124,106,255,0.06)" : "var(--bg-panel)",
@@ -417,6 +424,11 @@ function IdeaCard({
                 opacity: validating ? 0.5 : 1,
               }}>{validating ? "..." : "✓ Validate"}</button>
             )}
+            <button onClick={openCompetitor} style={{
+              fontFamily: "var(--font-geist-mono)", fontSize: 9, letterSpacing: "0.05em",
+              padding: "3px 9px", borderRadius: 5, cursor: "pointer", textTransform: "uppercase",
+              background: "rgba(248,113,113,0.08)", border: "1px solid rgba(248,113,113,0.2)", color: "#f87171",
+            }} title="Find competitors for this idea">🔍 Clone</button>
             <button onClick={queueForBuilder} disabled={building} style={{
               fontFamily: "var(--font-geist-mono)", fontSize: 9, letterSpacing: "0.05em",
               padding: "3px 9px", borderRadius: 5, cursor: building ? "default" : "pointer", textTransform: "uppercase",

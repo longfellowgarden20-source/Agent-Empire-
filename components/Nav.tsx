@@ -9,6 +9,7 @@ const links = [
   { href: "/", label: "Home" },
   { href: "/control", label: "⚙ Control" },
   { href: "/ideas", label: "Ideas" },
+  { href: "/competitor", label: "Clone" },
   { href: "/prospects", label: "Prospects" },
   { href: "/oracle", label: "Intel" },
   { href: "/agents", label: "Agents" },

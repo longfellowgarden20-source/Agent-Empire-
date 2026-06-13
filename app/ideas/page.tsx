@@ -33,6 +33,9 @@ export default function IdeasPage() {
   const [loading, setLoading] = useState(true);
   const [triggering, setTriggering] = useState(false);
   const [triggerMsg, setTriggerMsg] = useState("");
+  const [pitch, setPitch] = useState("");
+  const [pitching, setPitching] = useState(false);
+  const [pitchMsg, setPitchMsg] = useState("");
 
   async function triggerScout() {
     setTriggering(true);
@@ -49,6 +52,29 @@ export default function IdeasPage() {
       setTriggerMsg("Could not reach worker");
     }
     setTriggering(false);
+  }
+
+  async function submitPitch() {
+    if (!pitch.trim() || pitching) return;
+    setPitching(true);
+    setPitchMsg("");
+    try {
+      const res = await fetch("/api/pitch-idea", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ pitch: pitch.trim() }),
+      });
+      const data = await res.json();
+      if (data.ok) {
+        setPitchMsg(`✓ "${data.title}" added to pipeline`);
+        setPitch("");
+      } else {
+        setPitchMsg(`Error: ${data.error}`);
+      }
+    } catch {
+      setPitchMsg("Could not reach server");
+    }
+    setPitching(false);
   }
 
   async function fetchIdeas() {
@@ -98,6 +124,51 @@ export default function IdeasPage() {
             </span>
           )}
         </div>
+      </div>
+
+      {/* Pitch input */}
+      <div style={{
+        background: "var(--bg-panel)", border: "1px solid var(--border)",
+        borderRadius: 12, backdropFilter: "blur(12px)", padding: "18px 20px",
+        display: "flex", flexDirection: "column", gap: 10,
+      }}>
+        <p style={{ fontSize: 11, fontFamily: "var(--font-geist-mono)", color: "var(--text-muted)", textTransform: "uppercase", letterSpacing: "0.08em", margin: 0 }}>
+          Pitch an idea — the system refines it
+        </p>
+        <div style={{ display: "flex", gap: 10 }}>
+          <textarea
+            value={pitch}
+            onChange={e => { setPitch(e.target.value); setPitchMsg(""); }}
+            onKeyDown={e => { if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) submitPitch(); }}
+            placeholder="e.g. an AI tool that writes cold emails for real estate agents, charged per lead..."
+            rows={2}
+            style={{
+              flex: 1, background: "rgba(255,255,255,0.03)", border: "1px solid var(--border)",
+              borderRadius: 8, color: "var(--text-primary)", fontSize: 13, padding: "10px 14px",
+              fontFamily: "inherit", resize: "none", outline: "none", lineHeight: 1.5,
+            }}
+          />
+          <button
+            onClick={submitPitch}
+            disabled={pitching || !pitch.trim()}
+            style={{
+              fontFamily: "var(--font-geist-mono)", fontSize: 11, letterSpacing: "0.06em",
+              padding: "0 20px", borderRadius: 8, cursor: pitching || !pitch.trim() ? "default" : "pointer",
+              background: pitching ? "rgba(52,211,153,0.1)" : "rgba(124,106,255,0.12)",
+              border: `1px solid ${pitching ? "rgba(52,211,153,0.25)" : "rgba(124,106,255,0.3)"}`,
+              color: pitching ? "#34d399" : "#a78bfa",
+              textTransform: "uppercase", transition: "all 0.15s", flexShrink: 0,
+              opacity: !pitch.trim() && !pitching ? 0.4 : 1,
+            }}
+          >
+            {pitching ? "Refining..." : "⚡ Refine"}
+          </button>
+        </div>
+        {pitchMsg && (
+          <span style={{ fontSize: 11, fontFamily: "var(--font-geist-mono)", color: pitchMsg.startsWith("✓") ? "#34d399" : "#f87171" }}>
+            {pitchMsg}
+          </span>
+        )}
       </div>
 
       {/* Pipeline stages */}

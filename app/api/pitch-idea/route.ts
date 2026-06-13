@@ -10,11 +10,7 @@ const REFINE_PROMPT = (pitch: string) => `You are a startup analyst for an AI bu
 
 Their pitch: "${pitch}"
 
-Your job:
-1. Extract the core business idea (even if the pitch is rough or one sentence)
-2. Identify the real problem it solves and who has it
-3. Score it honestly 1-10 on: market size, monetization clarity, AI suitability, competition
-4. Write a crisp description that would make a VC lean in
+Extract the core business idea and return a structured analysis.
 
 Return ONLY valid JSON (no markdown):
 {
@@ -24,18 +20,44 @@ Return ONLY valid JSON (no markdown):
   "market_size": "small|medium|large",
   "revenue_model": "exact pricing model e.g. $49/mo SaaS or $299 one-time",
   "target_customer": "specific person who buys this",
-  "reasoning": "2 sentences: why this is a good or bad idea, what makes it work or fail",
+  "reasoning": "2 sentences: why this could work and what makes it viable",
   "risks": "biggest risk in one sentence",
   "refined_pitch": "one sentence elevator pitch"
 }`;
 
 export async function POST(req: NextRequest) {
   try {
-    const { pitch } = await req.json();
+    const body = await req.json();
+    const { pitch, preview_only, refined_override } = body;
+
     if (!pitch || typeof pitch !== "string" || pitch.trim().length < 5) {
       return NextResponse.json({ ok: false, error: "Pitch too short" }, { status: 400 });
     }
 
+    // if we have an override (user edited preview), skip Groq and just save
+    if (refined_override) {
+      const r = refined_override;
+      const { data, error } = await sb.from("ideas").insert({
+        title: r.title,
+        description: r.description,
+        source: "chairman",
+        raw_score: Math.min(100, Math.round((r.score ?? 5) * 10)),
+        status: "raw",
+        market_data: {
+          market_size: r.market_size,
+          revenue_model: r.revenue_model,
+          reasoning: r.reasoning,
+          risks: r.risks,
+          target_customer: r.target_customer,
+          refined_pitch: r.refined_pitch,
+          original_pitch: pitch,
+        },
+      }).select("id, title").single();
+      if (error) return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
+      return NextResponse.json({ ok: true, title: data.title, id: data.id });
+    }
+
+    // call Groq
     const groqRes = await fetch("https://api.groq.com/openai/v1/chat/completions", {
       method: "POST",
       headers: {
@@ -60,6 +82,12 @@ export async function POST(req: NextRequest) {
     const cleaned = raw.trim().replace(/^```json\n?/, "").replace(/^```\n?/, "").replace(/```$/, "").trim();
     const refined = JSON.parse(cleaned);
 
+    // preview_only — return refined without saving
+    if (preview_only) {
+      return NextResponse.json({ ok: true, refined });
+    }
+
+    // save directly
     const { data, error } = await sb.from("ideas").insert({
       title: refined.title,
       description: refined.description,
@@ -78,8 +106,8 @@ export async function POST(req: NextRequest) {
     }).select("id, title").single();
 
     if (error) return NextResponse.json({ ok: false, error: error.message }, { status: 500 });
-
     return NextResponse.json({ ok: true, title: data.title, id: data.id });
+
   } catch (e: any) {
     return NextResponse.json({ ok: false, error: e.message }, { status: 500 });
   }

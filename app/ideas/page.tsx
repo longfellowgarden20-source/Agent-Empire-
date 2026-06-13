@@ -315,7 +315,7 @@ function IdeaCard({
     await supabase.from("ideas").update({ status: "validated" }).eq("id", idea.id);
     await supabase.from("task_queue").insert({
       to_agent: "builder", from_agent: "chairman",
-      task: "build_idea", payload: { idea_id: idea.id, title: idea.title },
+      task_type: "build_idea", payload: { idea_id: idea.id, title: idea.title },
       priority: 9, status: "pending",
     });
     setBuildMsg("Queued for Builder");

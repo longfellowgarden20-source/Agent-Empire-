@@ -1,7 +1,8 @@
 import { NextRequest, NextResponse } from "next/server";
 
 export async function POST(req: NextRequest) {
-  const { agent } = await req.json();
+  const body = await req.json();
+  const { agent, ...rest } = body;
   if (!agent) return NextResponse.json({ ok: false, error: "agent name required" }, { status: 400 });
 
   const workerUrl = process.env.WORKER_SERVICE_URL;
@@ -11,6 +12,7 @@ export async function POST(req: NextRequest) {
     const res = await fetch(`${workerUrl}/run/${agent}`, {
       method: "POST",
       headers: { "Content-Type": "application/json" },
+      body: Object.keys(rest).length ? JSON.stringify(rest) : undefined,
       signal: AbortSignal.timeout(10000),
     });
     if (!res.ok) {

@@ -17,6 +17,12 @@ async def run():
         await log_agent_run("money", "skipped", "No businesses", duration_ms=0)
         return
 
+    # load recent alerts to avoid spamming duplicates
+    from datetime import timedelta
+    cutoff = (datetime.now(timezone.utc) - timedelta(hours=24)).isoformat()
+    recent = sb.table("chairman_queue").select("message").gte("created_at", cutoff).execute()
+    recent_msgs = {r["message"] for r in (recent.data or [])}
+
     alerts = []
     for biz in businesses.data:
         score = biz.get("war_room_score", 0) or 0
@@ -31,7 +37,8 @@ async def run():
         if rev == 0 and biz.get("status") == "live":
             alerts.append(f"⚠️ {name} is live but has $0 revenue last 7 days")
 
-    for msg in alerts:
+    new_alerts = [a for a in alerts if a not in recent_msgs]
+    for msg in new_alerts:
         sb.table("chairman_queue").insert({
             "message": msg,
             "priority": 8,
@@ -39,8 +46,8 @@ async def run():
         }).execute()
 
     duration_ms = int((datetime.now(timezone.utc) - start).total_seconds() * 1000)
-    await log_agent_run("money", "success", f"Reviewed {len(businesses.data)} businesses, {len(alerts)} alerts", duration_ms=duration_ms)
-    print(f"[Money] Done — {len(alerts)} alerts")
+    await log_agent_run("money", "success", f"Reviewed {len(businesses.data)} businesses, {len(new_alerts)} new alerts", duration_ms=duration_ms)
+    print(f"[Money] Done — {len(new_alerts)} new alerts")
 
 
 if __name__ == "__main__":

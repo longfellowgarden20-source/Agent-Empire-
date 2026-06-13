@@ -61,7 +61,7 @@ async def run():
     sb = create_client(os.environ["NEXT_PUBLIC_SUPABASE_URL"], os.environ["SUPABASE_SERVICE_ROLE_KEY"])
 
     # find validated ideas without specs
-    ideas = sb.table("ideas").select("*").eq("status", "validated").is_("spec", "null").limit(3).execute()
+    ideas = sb.table("ideas").select("*").eq("status", "validated").is_("spec", None).limit(3).execute()
 
     if not ideas.data:
         print("[Builder] No validated ideas to spec")
@@ -88,7 +88,8 @@ async def run():
             }).eq("id", idea["id"]).execute()
 
             # register company so all agents can find it
-            slug = spec.get("product_name", idea["title"]).lower().replace(" ", "-").replace("_", "-")
+            import re
+            slug = re.sub(r"[^a-z0-9-]", "", spec.get("product_name", idea["title"]).lower().replace(" ", "-").replace("_", "-"))[:60]
             existing = sb.table("businesses").select("id").eq("slug", slug).execute()
             if not existing.data:
                 sb.table("businesses").insert({

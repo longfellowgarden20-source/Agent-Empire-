@@ -71,11 +71,10 @@ export default function AgentsClient() {
       };
     });
 
-    summaries.sort((a, b) => {
-      const order = CORE_AGENTS.indexOf(a.name) - CORE_AGENTS.indexOf(b.name);
-      return order !== 0 ? order : b.tasksToday - a.tasksToday;
-    });
-    setAgents(summaries);
+    // only show the 10 core agents, not old tier agents from history
+    const filtered = summaries.filter(a => CORE_AGENTS.includes(a.name));
+    filtered.sort((a, b) => CORE_AGENTS.indexOf(a.name) - CORE_AGENTS.indexOf(b.name));
+    setAgents(filtered);
     setLoading(false);
   }
 
@@ -103,7 +102,7 @@ export default function AgentsClient() {
       <div>
         <h1 style={{ fontSize: 22, fontWeight: 600, color: "var(--text-primary)", margin: 0, letterSpacing: "-0.02em" }}>Agents</h1>
         <p style={{ fontSize: 12, color: "var(--text-muted)", margin: "6px 0 0", fontFamily: "var(--font-geist-mono)" }}>
-          {agents.length} agents · {totalTasks} runs today
+          {CORE_AGENTS.length} agents · {totalTasks} runs today
         </p>
       </div>
 

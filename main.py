@@ -11,16 +11,18 @@ from fastapi.responses import JSONResponse
 ET = ZoneInfo("America/New_York")
 
 CORE_AGENTS = {
-    "scout":      "agents.core.scout",
-    "prospector": "agents.core.prospector",
-    "closer":     "agents.core.closer",
-    "content":    "agents.core.content",
-    "intel":      "agents.core.intel",
-    "ops":        "agents.core.ops",
-    "chairman":   "agents.core.chairman",
-    "builder":    "agents.core.builder",
-    "money":      "agents.core.money",
-    "learner":    "agents.core.learner",
+    "scout":                "agents.core.scout",
+    "prospector":           "agents.core.prospector",
+    "closer":               "agents.core.closer",
+    "content":              "agents.core.content",
+    "intel":                "agents.core.intel",
+    "ops":                  "agents.core.ops",
+    "chairman":             "agents.core.chairman",
+    "builder":              "agents.core.builder",
+    "money":                "agents.core.money",
+    "learner":              "agents.core.learner",
+    "template_generator":   "agents.core.template_generator",
+    "tiktok_hooks":         "agents.core.tiktok_hooks",
 }
 
 
@@ -108,6 +110,13 @@ async def scheduler_loop():
         # Chairman brief — 7am ET daily
         if hour == 7 and minute < 5:
             await maybe_run("chairman", 60 * 23)
+
+        # Template generator: create 10 templates + queue hooks — once daily (8am ET)
+        if hour == 8 and minute < 5:
+            await maybe_run("template_generator", 60 * 23)
+
+        # TikTok hooks: generate scripts from queued tasks — every 6 hours
+        await maybe_run("tiktok_hooks", 360)
 
         await asyncio.sleep(60)
 
